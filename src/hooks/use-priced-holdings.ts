@@ -101,7 +101,9 @@ export function usePricedHoldings() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [cryptoIds.join(","), stockSymbols.join(",")]);
 
-  const priced: PricedHolding[] = holdings.map((h) => {
+  const priced: PricedHolding[] = holdings
+    .filter((h): h is NonNullable<typeof h> => !!h)
+    .map((h) => {
     let price = 0;
     let change = 0;
     let stale = false;
