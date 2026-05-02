@@ -7,6 +7,44 @@ interface CacheEntry {
 
 let cache: CacheEntry | null = null;
 
+async function fetchFromCoinGecko(ids: string): Promise<Record<string, { usd: number; usd_24h_change: number | null }>> {
+  const url = `https://api.coingecko.com/api/v3/simple/price?ids=${encodeURIComponent(
+    ids
+  )}&vs_currencies=usd&include_24hr_change=true`;
+
+  for (let attempt = 0; attempt < 4; attempt++) {
+    try {
+      const res = await fetch(url, {
+        headers: { Accept: "application/json" },
+      });
+
+      if (res.status === 429) {
+        if (attempt < 3) {
+          const wait = Math.min(2000 * Math.pow(2, attempt), 15000);
+          await new Promise((r) => setTimeout(r, wait));
+          continue;
+        }
+        throw new Error("rate limited after retries");
+      }
+
+      if (!res.ok) {
+        throw new Error(`upstream ${res.status}`);
+      }
+
+      return await res.json();
+    } catch (err) {
+      if (attempt < 3) {
+        const wait = Math.min(1000 * Math.pow(2, attempt), 8000);
+        await new Promise((r) => setTimeout(r, wait));
+        continue;
+      }
+      throw err;
+    }
+  }
+
+  throw new Error("max retries");
+}
+
 export default async function handler(req: any, res: any) {
   res.setHeader("Access-Control-Allow-Origin", "*");
   res.setHeader("Access-Control-Allow-Methods", "GET, OPTIONS");
@@ -29,33 +67,7 @@ export default async function handler(req: any, res: any) {
   }
 
   try {
-    const url = `https://api.coingecko.com/api/v3/simple/price?ids=${encodeURIComponent(
-      ids
-    )}&vs_currencies=usd&include_24hr_change=true`;
-
-    const fetchRes = await fetch(url, {
-      headers: { Accept: "application/json" },
-    });
-
-    if (fetchRes.status === 429) {
-      if (cache) {
-        res.status(200).json(filterData(cache.data, ids));
-        return;
-      }
-      res.status(429).json({ error: "rate limited, no cache" });
-      return;
-    }
-
-    if (!fetchRes.ok) {
-      if (cache) {
-        res.status(200).json(filterData(cache.data, ids));
-        return;
-      }
-      res.status(502).json({ error: "upstream error" });
-      return;
-    }
-
-    const data = await fetchRes.json();
+    const data = await fetchFromCoinGecko(ids);
     cache = { data, ts: Date.now() };
     res.status(200).json(filterData(data, ids));
   } catch {
@@ -63,7 +75,7 @@ export default async function handler(req: any, res: any) {
       res.status(200).json(filterData(cache.data, ids));
       return;
     }
-    res.status(502).json({ error: "fetch failed" });
+    res.status(502).json({ error: "fetch failed after retries" });
   }
 }
 
