@@ -5,6 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useStore } from "@/lib/store";
 import { getFinnhubKey, setFinnhubKey } from "@/lib/prices";
+import { getHistory } from "@/lib/priceHistory";
 import { Download, Upload, Trash2, Key } from "lucide-react";
 import { toast } from "sonner";
 
@@ -12,6 +13,7 @@ export default function Settings() {
   const holdings = useStore((s) => s.holdings);
   const trades = useStore((s) => s.trades);
   const returns = useStore((s) => s.returns);
+  const clearedHoldings = useStore((s) => s.clearedHoldings);
   const importAll = useStore((s) => s.importAll);
   const reset = useStore((s) => s.reset);
 
@@ -21,7 +23,15 @@ export default function Settings() {
   const fileRef = useRef<HTMLInputElement>(null);
 
   const exportJson = () => {
-    const data = { holdings, trades, returns, exportedAt: new Date().toISOString(), version: 1 };
+    const data = {
+      holdings,
+      trades,
+      returns,
+      clearedHoldings,
+      priceHistory: getHistory(),
+      exportedAt: new Date().toISOString(),
+      version: 2,
+    };
     const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
@@ -41,8 +51,17 @@ export default function Settings() {
       if (!Array.isArray(data.holdings) || !Array.isArray(data.trades) || !Array.isArray(data.returns)) {
         throw new Error("invalid file");
       }
-      importAll({ holdings: data.holdings, trades: data.trades, returns: data.returns });
-      toast.success("已导入数据");
+      if (data.priceHistory && typeof data.priceHistory === "object") {
+        localStorage.setItem("invest-price-history-v1", JSON.stringify(data.priceHistory));
+      }
+      importAll({
+        holdings: data.holdings,
+        trades: data.trades,
+        returns: data.returns,
+        clearedHoldings: data.clearedHoldings ?? [],
+      });
+      toast.success("已导入数据，页面即将刷新");
+      setTimeout(() => window.location.reload(), 800);
     } catch {
       toast.error("文件格式不正确");
     } finally {
