@@ -222,25 +222,18 @@ function recalcSellPnl(trades: Trade[]): Trade[] {
 
   const result = trades.map((t) => ({ ...t }));
   for (const [, items] of Object.entries(grouped)) {
-    const sorted = items.slice().sort((a, b) => a.trade.date.localeCompare(b.trade.date) || a.trade.createdAt.localeCompare(b.trade.createdAt));
-    let qty = 0;
-    let avg = 0;
-    let hadBuyBefore = false;
-    for (const { trade: t, idx } of sorted) {
-      if (t.action === "buy") {
-        const total = qty + t.quantity;
-        avg = total > 0 ? (qty * avg + t.quantity * t.price) / total : 0;
-        qty = total;
-        hadBuyBefore = true;
-      } else {
-        if (hadBuyBefore) {
-          const effectiveAvg = avg > 0 ? avg : t.price;
-          const pnl = (t.price - effectiveAvg) * t.quantity;
-          const pnlPct = effectiveAvg > 0 ? ((t.price - effectiveAvg) / effectiveAvg) * 100 : 0;
-          result[idx] = { ...result[idx], realizedPnl: pnl, realizedPnlPct: pnlPct };
-        }
-        qty = qty - t.quantity;
-        if (qty <= 0.0000001) { qty = 0; avg = 0; hadBuyBefore = false; }
+    const allTrades = items.map((it) => it.trade);
+    const buyTrades = allTrades.filter((t) => t.action === "buy");
+    const totalBuyQty = buyTrades.reduce((s, t) => s + t.quantity, 0);
+    const totalBuyAmount = buyTrades.reduce((s, t) => s + t.quantity * t.price, 0);
+    const avgBuyCost = totalBuyQty > 0 ? totalBuyAmount / totalBuyQty : 0;
+
+    for (const { trade: t, idx } of items) {
+      if (t.action === "sell") {
+        const effectiveAvg = avgBuyCost > 0 ? avgBuyCost : t.price;
+        const pnl = (t.price - effectiveAvg) * t.quantity;
+        const pnlPct = effectiveAvg > 0 ? ((t.price - effectiveAvg) / effectiveAvg) * 100 : 0;
+        result[idx] = { ...result[idx], realizedPnl: pnl, realizedPnlPct: pnlPct };
       }
     }
   }
