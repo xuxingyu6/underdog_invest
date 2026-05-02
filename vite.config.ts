@@ -11,6 +11,18 @@ export default defineConfig(({ mode }) => ({
     hmr: {
       overlay: false,
     },
+    proxy: {
+      "/api/coingecko": {
+        target: "https://api.coingecko.com/api/v3",
+        changeOrigin: true,
+        rewrite: (path) => path.replace(/^\/api\/coingecko/, ""),
+      },
+      "/api/finnhub": {
+        target: "https://finnhub.io/api/v1",
+        changeOrigin: true,
+        rewrite: (path) => path.replace(/^\/api\/finnhub/, ""),
+      },
+    },
   },
   plugins: [react(), mode === "development" && componentTagger()].filter(Boolean),
   resolve: {
