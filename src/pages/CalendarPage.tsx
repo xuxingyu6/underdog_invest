@@ -181,14 +181,14 @@ function DayDetailDialog({
   const breakdown = useMemo(() => {
     if (!entry || !priced.length) return [];
     return priced
+      .filter((h): h is NonNullable<typeof h> => !!h && h.type !== "cash" && h.marketValue > 0)
       .filter((h) => {
-        if (h.type === "cash" || h.marketValue <= 0) return false;
         if (scope === "all") return true;
         return h.type === scope;
       })
       .map((h) => ({
         symbol: h.symbol,
-        name: h.name,
+        name: h.name ?? "",
         type: h.type,
         quantity: h.quantity,
         avgCost: h.avgCost,
@@ -198,7 +198,7 @@ function DayDetailDialog({
         marketValue: h.marketValue,
       }))
       .sort((a, b) => b.pnl - a.pnl);
-  }, [entry, priced]);
+  }, [entry, priced, scope]);
 
   if (!date || !entry) return null;
 
