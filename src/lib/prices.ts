@@ -6,7 +6,7 @@ const CACHE_TTL_KEY = "invest-price-cache-ttl-v1";
 const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
 
 const isDev = import.meta.env.DEV;
-const COINGECKO_BASE = isDev ? "/api/coingecko" : "https://api.coingecko.com/api/v3";
+const COINGECKO_BASE = isDev ? "/api/coingecko" : "/api/crypto-prices";
 const FINNHUB_BASE = isDev ? "/api/finnhub" : "https://finnhub.io/api/v1";
 
 type Cache = Record<string, PriceQuote>;
@@ -103,9 +103,11 @@ export async function fetchCryptoPrices(ids: string[]): Promise<Record<string, P
     return out;
   }
   try {
-    const url = `${COINGECKO_BASE}/simple/price?ids=${encodeURIComponent(
-      ids.join(","),
-    )}&vs_currencies=usd&include_24hr_change=true`;
+    const url = isDev
+      ? `${COINGECKO_BASE}/simple/price?ids=${encodeURIComponent(
+          ids.join(","),
+        )}&vs_currencies=usd&include_24hr_change=true`
+      : `${COINGECKO_BASE}?ids=${encodeURIComponent(ids.join(","))}`;
     const res = await fetchWithRetry(url);
     if (!res.ok) throw new Error("coingecko fail");
     const data = await res.json();
