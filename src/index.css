@@ -1,0 +1,205 @@
+@import url('https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500;600;700&family=Geist+Mono:wght@400;500;600&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/*
+  Design language: shadcn-style neutral grayscale.
+  OKLCH source values translated to HSL equivalents for Tailwind v3 compatibility.
+  Hue is 0 / saturation 0% across the entire neutral ramp — pure grayscale.
+*/
+
+@layer base {
+  :root {
+    /* Core neutrals (light) */
+    --background: 0 0% 100%;          /* oklch(1 0 0) */
+    --foreground: 0 0% 9%;            /* oklch(0.145 0 0) */
+
+    --card: 0 0% 100%;
+    --card-foreground: 0 0% 9%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 0 0% 9%;
+
+    --primary: 0 0% 14%;              /* oklch(0.205 0 0) — near-black */
+    --primary-foreground: 0 0% 98%;
+    --primary-soft: 0 0% 96%;
+
+    --secondary: 0 0% 96%;            /* oklch(0.97 0 0) */
+    --secondary-foreground: 0 0% 14%;
+
+    --muted: 0 0% 96%;
+    --muted-foreground: 0 0% 45%;     /* oklch(0.556 0 0) */
+
+    --accent: 0 0% 96%;
+    --accent-foreground: 0 0% 14%;
+
+    --destructive: 0 72% 51%;         /* oklch(0.577 0.245 27.325) */
+    --destructive-foreground: 0 0% 98%;
+
+    --border: 0 0% 90%;               /* oklch(0.922 0 0) */
+    --input: 0 0% 90%;
+    --ring: 0 0% 64%;                 /* oklch(0.708 0 0) */
+
+    /* Finance semantic colors — kept for P/L readability, but desaturated to fit minimal style */
+    --profit: 158 64% 35%;
+    --profit-foreground: 0 0% 100%;
+    --profit-soft: 158 35% 94%;
+
+    --loss: 0 72% 51%;
+    --loss-foreground: 0 0% 100%;
+    --loss-soft: 0 70% 96%;
+
+    --neutral: 0 0% 45%;
+    --warning: 38 92% 50%;
+
+    /* Chart palette (matches the reference --chart-1..5) */
+    --chart-1: 27 87% 56%;            /* oklch(0.646 0.222 41.116) — orange */
+    --chart-2: 184 51% 47%;           /* oklch(0.6 0.118 184.704) — teal */
+    --chart-3: 222 56% 32%;           /* oklch(0.398 0.07 227.392) — deep blue */
+    --chart-4: 47 90% 65%;            /* oklch(0.828 0.189 84.429) — yellow */
+    --chart-5: 38 88% 58%;            /* oklch(0.769 0.188 70.08) — amber */
+
+    /* Asset type chips — derived from chart palette, low-key */
+    --asset-stock: 222 56% 32%;
+    --asset-crypto: 27 87% 56%;
+    --asset-gold: 47 88% 55%;
+    --asset-bond: 184 51% 47%;
+    --asset-cash: 158 50% 40%;
+    --asset-other: 0 0% 45%;
+
+    /* Heatmap intensities — 6 levels */
+    --heat-up-strong: 158 64% 35%;
+    --heat-up-mid: 158 48% 52%;
+    --heat-up-mild: 158 35% 78%;
+    --heat-down-mild: 0 55% 90%;
+    --heat-down-mid: 0 65% 78%;
+    --heat-down-strong: 0 72% 60%;
+    --heat-empty: 0 0% 94%;
+
+    --radius: 0.625rem;
+
+    /* Sidebar — slightly off-white per reference (oklch 0.985) */
+    --sidebar-background: 0 0% 98%;
+    --sidebar-foreground: 0 0% 9%;
+    --sidebar-primary: 0 0% 14%;
+    --sidebar-primary-foreground: 0 0% 98%;
+    --sidebar-accent: 0 0% 96%;
+    --sidebar-accent-foreground: 0 0% 14%;
+    --sidebar-border: 0 0% 90%;
+    --sidebar-ring: 0 0% 64%;
+  }
+
+  .dark {
+    --background: 0 0% 9%;
+    --foreground: 0 0% 98%;
+
+    --card: 0 0% 9%;
+    --card-foreground: 0 0% 98%;
+
+    --popover: 0 0% 9%;
+    --popover-foreground: 0 0% 98%;
+
+    --primary: 0 0% 98%;
+    --primary-foreground: 0 0% 14%;
+    --primary-soft: 0 0% 18%;
+
+    --secondary: 0 0% 22%;            /* oklch(0.269 0 0) */
+    --secondary-foreground: 0 0% 98%;
+
+    --muted: 0 0% 22%;
+    --muted-foreground: 0 0% 64%;     /* oklch(0.708 0 0) */
+
+    --accent: 0 0% 22%;
+    --accent-foreground: 0 0% 98%;
+
+    --destructive: 0 50% 32%;
+    --destructive-foreground: 0 70% 56%;
+
+    --border: 0 0% 22%;
+    --input: 0 0% 22%;
+    --ring: 0 0% 36%;
+
+    --profit: 158 60% 50%;
+    --profit-foreground: 0 0% 100%;
+    --profit-soft: 158 30% 18%;
+
+    --loss: 0 70% 60%;
+    --loss-foreground: 0 0% 100%;
+    --loss-soft: 0 40% 22%;
+
+    --neutral: 0 0% 64%;
+    --warning: 38 92% 55%;
+
+    /* Dark chart palette per reference */
+    --chart-1: 258 86% 60%;           /* oklch(0.488 0.243 264.376) */
+    --chart-2: 161 56% 56%;           /* oklch(0.696 0.17 162.48) */
+    --chart-3: 38 88% 58%;
+    --chart-4: 296 73% 60%;
+    --chart-5: 12 78% 60%;
+
+    --asset-stock: 258 86% 65%;
+    --asset-crypto: 12 78% 60%;
+    --asset-gold: 38 88% 58%;
+    --asset-bond: 161 56% 56%;
+    --asset-cash: 158 50% 50%;
+    --asset-other: 0 0% 64%;
+
+    --heat-up-strong: 158 60% 45%;
+    --heat-up-mid: 158 45% 38%;
+    --heat-up-mild: 158 30% 30%;
+    --heat-down-mild: 0 40% 28%;
+    --heat-down-mid: 0 55% 38%;
+    --heat-down-strong: 0 70% 55%;
+    --heat-empty: 0 0% 16%;
+
+    --sidebar-background: 0 0% 14%;   /* oklch(0.205 0 0) */
+    --sidebar-foreground: 0 0% 98%;
+    --sidebar-primary: 258 86% 60%;
+    --sidebar-primary-foreground: 0 0% 98%;
+    --sidebar-accent: 0 0% 22%;
+    --sidebar-accent-foreground: 0 0% 98%;
+    --sidebar-border: 0 0% 22%;
+    --sidebar-ring: 0 0% 36%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  html, body {
+    font-family: 'Geist', system-ui, -apple-system, 'Segoe UI', sans-serif;
+    font-feature-settings: 'cv11', 'ss01';
+    -webkit-font-smoothing: antialiased;
+  }
+
+  body {
+    @apply bg-background text-foreground;
+  }
+
+  .font-mono, .tabular {
+    font-family: 'Geist Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-variant-numeric: tabular-nums;
+  }
+}
+
+@layer utilities {
+  .text-profit { color: hsl(var(--profit)); }
+  .text-loss { color: hsl(var(--loss)); }
+  .bg-profit { background-color: hsl(var(--profit)); }
+  .bg-loss { background-color: hsl(var(--loss)); }
+  .bg-profit-soft { background-color: hsl(var(--profit-soft)); }
+  .bg-loss-soft { background-color: hsl(var(--loss-soft)); }
+
+  .animate-fade-in {
+    animation: fade-in 0.2s ease-out;
+  }
+}
+
+@keyframes fade-in {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
