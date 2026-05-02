@@ -1,6 +1,6 @@
 import { useState } from "react";
 import {
-  Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter,
+  Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogTrigger, DialogFooter,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -89,6 +89,7 @@ export function HoldingFormDialog({ trigger, initial }: Props) {
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle>{initial ? "编辑持仓" : "添加持仓"}</DialogTitle>
+          <DialogDescription>{initial ? "修改持仓的数量、成本价等信息" : "添加一个新的投资标的到持仓列表"}</DialogDescription>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-2">

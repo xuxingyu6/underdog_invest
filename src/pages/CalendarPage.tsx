@@ -2,7 +2,7 @@ import { useState, useMemo } from "react";
 import { AppLayout } from "@/components/AppLayout";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import type { ScopeType } from "@/lib/types";
 import { formatPercent, formatSignedMoney, heatColor, heatTextColor, plClass } from "@/lib/format";
 import { ChevronLeft, ChevronRight, X } from "lucide-react";
@@ -212,6 +212,7 @@ function DayDetailDialog({
               <X className="w-4 h-4" />
             </Button>
           </div>
+          <DialogDescription>当日各持仓的盈亏明细</DialogDescription>
         </DialogHeader>
 
         <div className="space-y-4 mt-4">

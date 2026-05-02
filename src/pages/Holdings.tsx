@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import {
-  Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter,
+  Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogTrigger, DialogFooter,
 } from "@/components/ui/dialog";
 import { usePricedHoldings } from "@/hooks/use-priced-holdings";
 import { useStore } from "@/lib/store";
@@ -360,6 +360,7 @@ function SellFormDialog({ holding, trigger }: { holding: PricedHolding; trigger?
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle>卖出 {holding.symbol}</DialogTitle>
+          <DialogDescription>输入卖出数量和价格，系统将自动计算已实现盈亏</DialogDescription>
         </DialogHeader>
         <form onSubmit={submit} className="space-y-4">
           <div className="text-xs text-muted-foreground">

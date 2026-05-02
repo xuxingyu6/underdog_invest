@@ -8,7 +8,7 @@ import {
 } from "@/components/ui/select";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
-  Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter,
+  Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogTrigger, DialogFooter,
 } from "@/components/ui/dialog";
 import { useStore } from "@/lib/store";
 import type { PeriodType, ScopeType } from "@/lib/types";
@@ -200,7 +200,10 @@ function ReturnFormDialog() {
         <Button size="sm"><Plus className="w-4 h-4 mr-2" />添加收益率</Button>
       </DialogTrigger>
       <DialogContent className="sm:max-w-md">
-        <DialogHeader><DialogTitle>录入收益率</DialogTitle></DialogHeader>
+        <DialogHeader>
+          <DialogTitle>录入收益率</DialogTitle>
+          <DialogDescription>记录指定周期的收益率数据</DialogDescription>
+        </DialogHeader>
         <form onSubmit={submit} className="space-y-4">
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-2">

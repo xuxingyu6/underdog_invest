@@ -212,7 +212,7 @@ function recomputeClearedHoldings(trades: Trade[], currentHoldings: Holding[], r
   return cleared;
 }
 
-function recalcSellPnl(trades: Trade[]): Trade[] {
+function recalcSellPnl(trades: Trade[], holdings: Holding[]): Trade[] {
   const grouped: Record<string, { trade: Trade; idx: number }[]> = {};
   trades.forEach((t, i) => {
     if (t.type === "cash") return;
@@ -226,7 +226,15 @@ function recalcSellPnl(trades: Trade[]): Trade[] {
     const buyTrades = allTrades.filter((t) => t.action === "buy");
     const totalBuyQty = buyTrades.reduce((s, t) => s + t.quantity, 0);
     const totalBuyAmount = buyTrades.reduce((s, t) => s + t.quantity * t.price, 0);
-    const avgBuyCost = totalBuyQty > 0 ? totalBuyAmount / totalBuyQty : 0;
+    let avgBuyCost = totalBuyQty > 0 ? totalBuyAmount / totalBuyQty : 0;
+
+    if (avgBuyCost <= 0) {
+      const sample = allTrades[0];
+      const h = holdings.find(
+        (x) => x.symbol.toLowerCase() === sample.symbol.toLowerCase() && x.type === sample.type
+      );
+      if (h && h.avgCost > 0) avgBuyCost = h.avgCost;
+    }
 
     for (const { trade: t, idx } of items) {
       if (t.action === "sell") {
@@ -297,7 +305,7 @@ export const useStore = create<State>()(
           const old = s.trades.find((t) => t.id === id);
           if (!old) return {};
           const next: Trade = { ...old, ...patch };
-          const trades = recalcSellPnl(s.trades.map((t) => (t.id === id ? next : t)));
+          const trades = recalcSellPnl(s.trades.map((t) => (t.id === id ? next : t)), s.holdings);
           const keys: string[] = [];
           if (old.type !== "cash") keys.push(`${old.type}:${old.symbol.toLowerCase()}`);
           if (next.type !== "cash") keys.push(`${next.type}:${next.symbol.toLowerCase()}`);

@@ -8,7 +8,7 @@ import {
   Select, SelectTrigger, SelectValue, SelectContent, SelectItem,
 } from "@/components/ui/select";
 import {
-  Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter,
+  Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogTrigger, DialogFooter,
 } from "@/components/ui/dialog";
 import { useStore } from "@/lib/store";
 import { ASSET_TYPE_LABELS, type AssetType, type Action } from "@/lib/types";
@@ -150,7 +150,7 @@ function TradeFormDialog({ initial, holdings, trigger }: { initial?: import("@/l
         {trigger ?? <Button size="sm"><Plus className="w-4 h-4 mr-2" />添加交易</Button>}
       </DialogTrigger>
       <DialogContent className="sm:max-w-md">
-        <DialogHeader><DialogTitle>{isEdit ? "编辑交易" : "添加交易"}</DialogTitle></DialogHeader>
+        <DialogHeader><DialogTitle>{isEdit ? "编辑交易" : "添加交易"}</DialogTitle><DialogDescription>{isEdit ? "修改交易记录的价格、数量等信息" : "记录一笔新的买入或卖出交易"}</DialogDescription></DialogHeader>
         <form onSubmit={submit} className="space-y-4">
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-2">
