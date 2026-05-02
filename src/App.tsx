@@ -4,6 +4,7 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { useEffect } from "react";
+import { ErrorBoundary } from "@/components/ErrorBoundary";
 import Holdings from "./pages/Holdings";
 import Trades from "./pages/Trades";
 import Returns from "./pages/Returns";
@@ -24,12 +25,13 @@ function ThemeBootstrap() {
 }
 
 const App = () => (
-  <QueryClientProvider client={queryClient}>
-    <TooltipProvider>
-      <ThemeBootstrap />
-      <Toaster />
-      <Sonner />
-      <BrowserRouter>
+  <ErrorBoundary>
+    <QueryClientProvider client={queryClient}>
+      <TooltipProvider>
+        <ThemeBootstrap />
+        <Toaster />
+        <Sonner />
+        <BrowserRouter>
         <Routes>
           <Route path="/" element={<Holdings />} />
           <Route path="/trades" element={<Trades />} />
@@ -41,6 +43,7 @@ const App = () => (
       </BrowserRouter>
     </TooltipProvider>
   </QueryClientProvider>
+  </ErrorBoundary>
 );
 
 export default App;

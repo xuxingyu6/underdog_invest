@@ -82,14 +82,15 @@ export function AllocationPie({ priced }: Props) {
   const [activeType, setActiveType] = useState<AssetType | null>(null);
 
   const slices: CategorySlice[] = useMemo(() => {
+    const safePriced = priced.filter((p): p is NonNullable<typeof p> => !!p);
     const total = TYPE_ORDER.reduce((s, t) => {
-      const items = priced.filter((p) => p.type === t && p.marketValue > 0);
+      const items = safePriced.filter((p) => p.type === t && p.marketValue > 0);
       return s + items.reduce((ss, p) => ss + p.marketValue, 0);
     }, 0);
 
     const raw = TYPE_ORDER
       .map((t) => {
-        const items = priced.filter((p) => p.type === t && p.marketValue > 0);
+        const items = safePriced.filter((p) => p.type === t && p.marketValue > 0);
         const value = items.reduce((s, p) => s + p.marketValue, 0);
         return {
           type: t,
@@ -113,7 +114,7 @@ export function AllocationPie({ priced }: Props) {
 
   const total = slices.reduce((s, x) => s + x.value, 0);
   const cellOpacity = (s: CategorySlice) => (activeType ? (s.type === activeType ? 1 : 0.25) : 0.95);
-  const detail = activeType ? priced.filter((p) => p.type === activeType && p.marketValue > 0) : null;
+  const detail = activeType ? safePriced.filter((p) => p.type === activeType && p.marketValue > 0) : null;
 
   if (slices.length === 0) {
     return (
