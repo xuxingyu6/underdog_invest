@@ -22,6 +22,7 @@ interface CategorySlice {
 const TYPE_ORDER: AssetType[] = ["stock", "crypto", "gold", "bond", "cash", "other"];
 
 function largestRemainderMethod(rawPcts: { name: string; raw: number }[]): number[] {
+  if (rawPcts.length === 0) return [];
   const floored = rawPcts.map((p) => ({ name: p.name, floor: Math.floor(p.raw), remainder: p.raw - Math.floor(p.raw) }));
   const sumFloored = floored.reduce((s, f) => s + f.floor, 0);
   const deficit = 100 - sumFloored;
@@ -81,8 +82,12 @@ function renderExternalLabel(props: any) {
 export function AllocationPie({ priced }: Props) {
   const [activeType, setActiveType] = useState<AssetType | null>(null);
 
+  const safePriced = useMemo(
+    () => priced.filter((p): p is NonNullable<typeof p> => !!p),
+    [priced],
+  );
+
   const slices: CategorySlice[] = useMemo(() => {
-    const safePriced = priced.filter((p): p is NonNullable<typeof p> => !!p);
     const total = TYPE_ORDER.reduce((s, t) => {
       const items = safePriced.filter((p) => p.type === t && p.marketValue > 0);
       return s + items.reduce((ss, p) => ss + p.marketValue, 0);
@@ -110,7 +115,7 @@ export function AllocationPie({ priced }: Props) {
     return raw
       .map((s) => ({ ...s, displayPct: displayMap.get(s.name) ?? 0 }))
       .sort((a, b) => b.pct - a.pct);
-  }, [priced]);
+  }, [safePriced]);
 
   const total = slices.reduce((s, x) => s + x.value, 0);
   const cellOpacity = (s: CategorySlice) => (activeType ? (s.type === activeType ? 1 : 0.25) : 0.95);

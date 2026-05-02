@@ -348,6 +348,32 @@ export const useStore = create<State>()(
     }),
     {
       name: "invest-tracker-v1",
+      onRehydrateStorage: () => {
+        return (state, error) => {
+          if (error || !state) return;
+          if (Array.isArray(state.holdings)) {
+            state.holdings = state.holdings.filter((h) => h && typeof h === "object" && h.id && h.symbol);
+          } else {
+            state.holdings = [];
+          }
+          if (Array.isArray(state.trades)) {
+            state.trades = state.trades.filter((t) => t && typeof t === "object" && t.id && t.symbol);
+          } else {
+            state.trades = [];
+          }
+          if (Array.isArray(state.returns)) {
+            state.returns = state.returns.filter((r) => r && typeof r === "object" && r.id);
+          } else {
+            state.returns = [];
+          }
+          if (!Array.isArray(state.clearedHoldings)) {
+            state.clearedHoldings = [];
+          }
+          if (!Array.isArray(state.removedHoldings)) {
+            state.removedHoldings = [];
+          }
+        };
+      },
     },
   ),
 );
