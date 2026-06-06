@@ -15,6 +15,57 @@ function resetStore() {
 describe("sold holdings summary", () => {
   beforeEach(resetStore);
 
+  it("adds a buy trade when creating a non-cash holding", () => {
+    useStore.getState().addHolding({
+      symbol: "NVDA",
+      type: "stock",
+      quantity: 5,
+      avgCost: 100,
+      priceId: "NVDA",
+      note: "starter position",
+    });
+
+    const [trade] = useStore.getState().trades;
+    expect(trade).toMatchObject({
+      symbol: "NVDA",
+      type: "stock",
+      action: "buy",
+      quantity: 5,
+      price: 100,
+      note: "添加持仓自动生成 · starter position",
+    });
+    expect(trade.date).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+  });
+
+  it("does not add a trade when creating a cash holding", () => {
+    useStore.getState().addHolding({
+      symbol: "现金",
+      name: "现金",
+      type: "cash",
+      quantity: 1000,
+      avgCost: 1,
+      manualPrice: 1,
+    });
+
+    expect(useStore.getState().trades).toHaveLength(0);
+  });
+
+  it("does not duplicate buy trades when editing a holding", () => {
+    useStore.getState().addHolding({
+      symbol: "MSFT",
+      type: "stock",
+      quantity: 2,
+      avgCost: 300,
+      priceId: "MSFT",
+    });
+    const holdingId = useStore.getState().holdings[0].id;
+
+    useStore.getState().updateHolding(holdingId, { name: "Microsoft" });
+
+    expect(useStore.getState().trades).toHaveLength(1);
+    expect(useStore.getState().trades[0].action).toBe("buy");
+  });
+
   it("records partial sells as sold records with the sold quantity", () => {
     const store = useStore.getState();
     store.addHolding({

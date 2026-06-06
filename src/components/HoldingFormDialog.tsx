@@ -78,7 +78,7 @@ export function HoldingFormDialog({ trigger, initial }: Props) {
       if (initial) updateHolding(initial.id, payload);
       else addHolding(payload);
     }
-    toast.success(initial ? "已更新持仓" : "已添加持仓");
+    toast.success(initial ? "已更新持仓" : isCash ? "已添加持仓" : "已添加持仓并记录买入");
     setOpen(false);
     if (!initial) reset();
   };

@@ -3,6 +3,14 @@ import { persist } from "zustand/middleware";
 import type { Holding, Trade, ReturnEntry, AssetType, ClearedHolding } from "./types";
 import { uid } from "./format";
 
+function todayKey() {
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = String(now.getMonth() + 1).padStart(2, "0");
+  const day = String(now.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
 interface State {
   holdings: Holding[];
   trades: Trade[];
@@ -274,9 +282,28 @@ export const useStore = create<State>()(
 
       addHolding: (h) =>
         set((s) => {
-          const holdings = [...s.holdings, { ...h, id: uid(), createdAt: new Date().toISOString() }];
-          const clearedHoldings = recomputeClearedHoldings(s.trades, holdings, s.removedHoldings);
-          return { holdings, clearedHoldings };
+          const createdAt = new Date().toISOString();
+          const holding: Holding = { ...h, id: uid(), createdAt };
+          const holdings = [...s.holdings, holding];
+          const trades =
+            h.type === "cash"
+              ? s.trades
+              : [
+                  {
+                    id: uid(),
+                    date: todayKey(),
+                    symbol: h.symbol.toUpperCase(),
+                    type: h.type,
+                    action: "buy" as const,
+                    quantity: h.quantity,
+                    price: h.avgCost,
+                    note: h.note ? `添加持仓自动生成 · ${h.note}` : "添加持仓自动生成",
+                    createdAt,
+                  },
+                  ...s.trades,
+                ];
+          const clearedHoldings = recomputeClearedHoldings(trades, holdings, s.removedHoldings);
+          return { holdings, trades, clearedHoldings };
         }),
       updateHolding: (id, patch) =>
         set((s) => {
