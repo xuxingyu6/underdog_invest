@@ -4,6 +4,7 @@ import { AllocationPie } from "@/components/AllocationPie";
 import { AssetTypeBadge } from "@/components/AssetTypeBadge";
 import { HoldingFormDialog } from "@/components/HoldingFormDialog";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
@@ -91,7 +92,7 @@ export default function Holdings() {
       <Tabs value={activeTab} onValueChange={setActiveTab} className="mb-6">
         <TabsList>
           <TabsTrigger value="current">当前持仓</TabsTrigger>
-          <TabsTrigger value="cleared">已清仓 ({clearedHoldings.length})</TabsTrigger>
+          <TabsTrigger value="cleared">已卖出 ({clearedHoldings.length})</TabsTrigger>
         </TabsList>
 
         <TabsContent value="current" className="mt-6">
@@ -230,9 +231,9 @@ export default function Holdings() {
         <TabsContent value="cleared" className="mt-6">
           <div className="bg-card border border-border rounded-xl overflow-hidden">
             <div className="px-6 py-4 border-b border-border">
-              <h3 className="font-semibold">已清仓记录</h3>
+              <h3 className="font-semibold">已卖出记录</h3>
               <p className="text-xs text-muted-foreground mt-0.5">
-                已清仓的标的不计入扇形图和总资产市值
+                记录发生过卖出的标的，部分卖出仍会保留在当前持仓中
               </p>
             </div>
             <div className="overflow-x-auto">
@@ -243,7 +244,7 @@ export default function Holdings() {
                     <th className="px-4 py-3 font-medium">类型</th>
                     <th className="px-4 py-3 font-medium text-right">买入均价</th>
                     <th className="px-4 py-3 font-medium text-right">卖出均价</th>
-                    <th className="px-4 py-3 font-medium text-right">持有数量</th>
+                    <th className="px-4 py-3 font-medium text-right">已卖出数量</th>
                     <th className="px-4 py-3 font-medium text-right">持有周期</th>
                     <th className="px-4 py-3 font-medium text-right">总已实现盈亏</th>
                     <th className="px-6 py-3 font-medium text-right">操作</th>
@@ -253,20 +254,30 @@ export default function Holdings() {
                   {clearedHoldings.length === 0 && (
                     <tr>
                       <td colSpan={8} className="px-6 py-12 text-center text-muted-foreground">
-                        暂无已清仓记录
+                        暂无已卖出记录
                       </td>
                     </tr>
                   )}
                   {clearedHoldings.map((c) => (
                     <tr key={c.id} className="border-b border-border last:border-0 hover:bg-muted/40">
                       <td className="px-6 py-4">
-                        <div className="font-medium">{c.symbol}</div>
+                        <div className="flex items-center gap-2">
+                          <span className="font-medium">{c.symbol}</span>
+                          <Badge variant={c.fullySold ? "secondary" : "outline"} className="rounded-md">
+                            {c.fullySold ? "全部卖出" : "部分卖出"}
+                          </Badge>
+                        </div>
                         {c.name && <div className="text-xs text-muted-foreground">{c.name}</div>}
+                        {!c.fullySold && c.remainingQuantity > 0 && (
+                          <div className="text-xs text-muted-foreground mt-1">
+                            剩余 {formatQuantity(c.remainingQuantity)}
+                          </div>
+                        )}
                       </td>
                       <td className="px-4 py-4"><AssetTypeBadge type={c.type} /></td>
                       <td className="px-4 py-4 text-right font-mono">{formatAvgCost(c.avgBuyCost, c.type)}</td>
                       <td className="px-4 py-4 text-right font-mono">{formatAvgCost(c.avgSellPrice, c.type)}</td>
-                      <td className="px-4 py-4 text-right font-mono">{formatQuantity(c.totalQuantity)}</td>
+                      <td className="px-4 py-4 text-right font-mono">{formatQuantity(c.soldQuantity)}</td>
                       <td className="px-4 py-4 text-right text-xs">{calcHoldingPeriod(c.firstBuyDate, c.lastSellDate)}</td>
                       <td className={cn("px-4 py-4 text-right font-mono", plClass(c.totalRealizedPnl))}>
                         <div>{formatSignedMoney(c.totalRealizedPnl)}</div>

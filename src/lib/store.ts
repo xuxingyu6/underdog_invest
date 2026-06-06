@@ -139,7 +139,17 @@ function rebuildHoldingsFromTrades(holdings: Holding[], trades: Trade[], affecte
   return next;
 }
 
-function computeClearedHolding(trades: Trade[], symbol: string, type: AssetType, currentHoldings: Holding[], removedHolding?: Holding): ClearedHolding | null {
+function normalizeSoldHolding(record: ClearedHolding): ClearedHolding {
+  const soldQuantity = record.soldQuantity ?? record.totalQuantity ?? 0;
+  return {
+    ...record,
+    soldQuantity,
+    remainingQuantity: record.remainingQuantity ?? 0,
+    fullySold: record.fullySold ?? true,
+  };
+}
+
+function computeSoldHolding(trades: Trade[], symbol: string, type: AssetType, currentHoldings: Holding[], removedHolding?: Holding): ClearedHolding | null {
   const relevant = trades.filter((t) => t.symbol.toLowerCase() === symbol.toLowerCase() && t.type === type);
   if (relevant.length === 0) return null;
 
@@ -151,13 +161,15 @@ function computeClearedHolding(trades: Trade[], symbol: string, type: AssetType,
   const totalBuyAmount = buyTrades.reduce((s, t) => s + t.quantity * t.price, 0);
   const totalSellQty = sellTrades.reduce((s, t) => s + t.quantity, 0);
   const totalSellAmount = sellTrades.reduce((s, t) => s + t.quantity * t.price, 0);
-
-  const isClearedByTrades = totalSellQty >= totalBuyQty - 0.0000001;
-  const isClearedByRemoval = !!removedHolding && totalSellQty > 0;
-  if (!isClearedByTrades && !isClearedByRemoval) return null;
+  const currentHolding = currentHoldings.find(
+    (h) => h.symbol.toLowerCase() === symbol.toLowerCase() && h.type === type
+  );
+  const holding = currentHolding ?? removedHolding;
+  const remainingQuantity = currentHolding?.quantity ?? 0;
+  const fullySold = remainingQuantity <= 0.0000001;
 
   const totalRealizedPnl = sellTrades.reduce((s, t) => s + (t.realizedPnl ?? 0), 0);
-  const avgBuyCost = totalBuyQty > 0 ? totalBuyAmount / totalBuyQty : (removedHolding?.avgCost ?? 0);
+  const avgBuyCost = totalBuyQty > 0 ? totalBuyAmount / totalBuyQty : (holding?.avgCost ?? 0);
   const avgSellPrice = totalSellQty > 0 ? totalSellAmount / totalSellQty : 0;
   const totalRealizedPnlPct = avgBuyCost > 0 ? ((avgSellPrice - avgBuyCost) / avgBuyCost) * 100 : 0;
 
@@ -166,9 +178,7 @@ function computeClearedHolding(trades: Trade[], symbol: string, type: AssetType,
   const firstBuyDate = sortedBuys.length > 0 ? sortedBuys[0].date : (removedHolding?.createdAt ?? sortedSells[sortedSells.length - 1].date);
   const lastSellDate = sortedSells[0].date;
 
-  const holding = currentHoldings.find(
-    (h) => h.symbol.toLowerCase() === symbol.toLowerCase() && h.type === type
-  ) ?? removedHolding;
+  const originalQuantity = totalBuyQty > 0 ? totalBuyQty : (remainingQuantity + totalSellQty || removedHolding?.quantity || totalSellQty);
 
   return {
     id: holding?.id ?? `${type}:${symbol.toLowerCase()}`,
@@ -177,7 +187,10 @@ function computeClearedHolding(trades: Trade[], symbol: string, type: AssetType,
     type: type,
     avgBuyCost,
     avgSellPrice,
-    totalQuantity: totalBuyQty > 0 ? totalBuyQty : (removedHolding?.quantity ?? totalSellQty),
+    totalQuantity: originalQuantity,
+    soldQuantity: totalSellQty,
+    remainingQuantity,
+    fullySold,
     totalRealizedPnl,
     totalRealizedPnlPct,
     firstBuyDate,
@@ -206,7 +219,7 @@ function recomputeClearedHoldings(trades: Trade[], currentHoldings: Holding[], r
     const removed = removedHoldings.find(
       (h) => h.symbol.toLowerCase() === symbol.toLowerCase() && h.type === type
     );
-    const result = computeClearedHolding(trades, symbol, type, currentHoldings, removed);
+    const result = computeSoldHolding(trades, symbol, type, currentHoldings, removed);
     if (result) cleared.push(result);
   }
   return cleared;
@@ -260,18 +273,24 @@ export const useStore = create<State>()(
       removedHoldings: [],
 
       addHolding: (h) =>
-        set((s) => ({
-          holdings: [...s.holdings, { ...h, id: uid(), createdAt: new Date().toISOString() }],
-        })),
+        set((s) => {
+          const holdings = [...s.holdings, { ...h, id: uid(), createdAt: new Date().toISOString() }];
+          const clearedHoldings = recomputeClearedHoldings(s.trades, holdings, s.removedHoldings);
+          return { holdings, clearedHoldings };
+        }),
       updateHolding: (id, patch) =>
-        set((s) => ({
-          holdings: s.holdings.map((h) => (h.id === id ? { ...h, ...patch } : h)),
-        })),
+        set((s) => {
+          const holdings = s.holdings.map((h) => (h.id === id ? { ...h, ...patch } : h));
+          const clearedHoldings = recomputeClearedHoldings(s.trades, holdings, s.removedHoldings);
+          return { holdings, clearedHoldings };
+        }),
       deleteHolding: (id) =>
         set((s) => {
           const removed = s.holdings.find((h) => h.id === id);
           const newRemoved = removed ? [...s.removedHoldings, removed] : s.removedHoldings;
-          return { holdings: s.holdings.filter((h) => h.id !== id), removedHoldings: newRemoved };
+          const holdings = s.holdings.filter((h) => h.id !== id);
+          const clearedHoldings = recomputeClearedHoldings(s.trades, holdings, newRemoved);
+          return { holdings, clearedHoldings, removedHoldings: newRemoved };
         }),
       setManualPrice: (id, price) =>
         set((s) => ({
@@ -287,7 +306,7 @@ export const useStore = create<State>()(
           const trade: Trade = { ...t, id: uid(), createdAt: new Date().toISOString(), ...tradeExtras };
           const newTrades = [trade, ...s.trades];
 
-          let newRemovedHoldings = [...s.removedHoldings];
+          const newRemovedHoldings = [...s.removedHoldings];
           if (t.action === "sell") {
             const oldHolding = s.holdings.find(
               (h) => h.symbol.toLowerCase() === t.symbol.toLowerCase() && h.type === t.type
@@ -340,13 +359,17 @@ export const useStore = create<State>()(
         set((s) => ({ clearedHoldings: s.clearedHoldings.filter((c) => c.id !== id) })),
 
       importAll: (data) =>
-        set(() => ({
-          holdings: data.holdings ?? [],
-          trades: data.trades ?? [],
-          returns: data.returns ?? [],
-          clearedHoldings: data.clearedHoldings ?? [],
-          removedHoldings: [],
-        })),
+        set(() => {
+          const holdings = data.holdings ?? [];
+          const trades = data.trades ?? [];
+          return {
+            holdings,
+            trades,
+            returns: data.returns ?? [],
+            clearedHoldings: recomputeClearedHoldings(trades, holdings, []),
+            removedHoldings: [],
+          };
+        }),
       reset: () => set({ holdings: [], trades: [], returns: [], clearedHoldings: [], removedHoldings: [] }),
     }),
     {
@@ -371,10 +394,19 @@ export const useStore = create<State>()(
           }
           if (!Array.isArray(state.clearedHoldings)) {
             state.clearedHoldings = [];
+          } else {
+            state.clearedHoldings = state.clearedHoldings
+              .filter((c) => c && typeof c === "object" && c.id && c.symbol)
+              .map(normalizeSoldHolding);
           }
           if (!Array.isArray(state.removedHoldings)) {
             state.removedHoldings = [];
           }
+          state.clearedHoldings = recomputeClearedHoldings(
+            state.trades,
+            state.holdings,
+            state.removedHoldings,
+          ).map(normalizeSoldHolding);
         };
       },
     },

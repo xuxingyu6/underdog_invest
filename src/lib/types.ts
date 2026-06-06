@@ -43,6 +43,9 @@ export interface ClearedHolding {
   avgBuyCost: number;
   avgSellPrice: number;
   totalQuantity: number;
+  soldQuantity: number;
+  remainingQuantity: number;
+  fullySold: boolean;
   totalRealizedPnl: number;
   totalRealizedPnlPct: number;
   firstBuyDate: string;
