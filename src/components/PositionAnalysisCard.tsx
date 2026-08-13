@@ -190,7 +190,7 @@ function PositionRowView({ row, color }: { row: PositionRow; color: string }) {
           {body}
         </button>
       </TooltipTrigger>
-      <TooltipContent side="top" align="start" className="text-xs">
+      <TooltipContent side="top" align="end" collisionPadding={8} className="text-xs">
         <div className="text-sm font-medium mb-1">{row.label}</div>
         <div className="flex items-center justify-between gap-4">
           <span className="text-muted-foreground">{moneyLabel}</span>
