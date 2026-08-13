@@ -14,6 +14,7 @@ import {
 import { usePricedHoldings } from "@/hooks/use-priced-holdings";
 import { useStore } from "@/lib/store";
 import type { PricedHolding } from "@/hooks/use-priced-holdings";
+import { PositionAnalysisCard } from "@/components/PositionAnalysisCard";
 import {
   formatMoney, formatNumber, formatPercent, formatStockPrice, formatCryptoPrice,
   formatSignedMoney, plClass, formatQuantity, formatAvgCost,
@@ -119,6 +120,12 @@ export default function Holdings() {
           {/* Allocation pie */}
           <div className="mb-6">
             <AllocationPie priced={priced} />
+          </div>
+
+          {/* 资产内部仓位分析：美股 / 加密货币 */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-6">
+            <PositionAnalysisCard type="stock" priced={priced} />
+            <PositionAnalysisCard type="crypto" priced={priced} />
           </div>
 
           {/* Holdings table */}
