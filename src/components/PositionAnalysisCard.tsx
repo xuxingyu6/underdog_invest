@@ -128,14 +128,9 @@ function PositionRowView({ row, color }: { row: PositionRow; color: string }) {
             </span>
           )}
         </div>
-        <div className="flex items-baseline gap-3 shrink-0">
-          <span className="text-xs font-mono text-muted-foreground">
-            {formatMoney(row.marketValue)}
-          </span>
-          <span className="text-sm font-mono font-medium w-[54px] text-right">
-            {fmtPct(row.pct)}
-          </span>
-        </div>
+        <span className="text-sm font-mono font-medium shrink-0">
+          {fmtPct(row.pct)}
+        </span>
       </div>
       <div className="mt-1.5 h-1 rounded-full bg-muted overflow-hidden">
         <div
