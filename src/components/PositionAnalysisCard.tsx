@@ -8,6 +8,13 @@ import {
   type PositionRow,
 } from "@/lib/position-analysis";
 import { Button } from "@/components/ui/button";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
+import { useIsMobile } from "@/hooks/use-mobile";
 import { ChevronDown, ChevronUp } from "lucide-react";
 
 const MAX_ITEMS = 5;
@@ -82,12 +89,14 @@ export function PositionAnalysisCard({ type, priced }: Props) {
             />
           </div>
 
-          <div className="mt-5 space-y-3.5">
-            {collapsed.rows.map((row) => (
-              <PositionRowView key={row.key} row={row} color={assetColor} />
-            ))}
-            <PositionRowView row={cashRow} color={cashColor} />
-          </div>
+          <TooltipProvider delayDuration={100}>
+            <div className="mt-5 space-y-3.5">
+              {collapsed.rows.map((row) => (
+                <PositionRowView key={row.key} row={row} color={assetColor} />
+              ))}
+              <PositionRowView row={cashRow} color={cashColor} />
+            </div>
+          </TooltipProvider>
 
           {collapsed.hasMore && (
             <Button
@@ -116,9 +125,13 @@ export function PositionAnalysisCard({ type, priced }: Props) {
 }
 
 function PositionRowView({ row, color }: { row: PositionRow; color: string }) {
+  const isMobile = useIsMobile();
+  const [open, setOpen] = useState(false);
   const width = isFinite(row.pct) ? Math.max(0, Math.min(100, row.pct)) : 0;
-  return (
-    <div>
+  const moneyLabel = row.key === "cash" ? "当前金额" : "当前市值";
+
+  const body = (
+    <>
       <div className="flex items-baseline justify-between gap-3">
         <div className="min-w-0 flex items-baseline gap-2">
           <span className="text-sm font-medium truncate">{row.label}</span>
@@ -138,6 +151,56 @@ function PositionRowView({ row, color }: { row: PositionRow; color: string }) {
           style={{ width: `${width}%`, backgroundColor: color }}
         />
       </div>
-    </div>
+      {isMobile && open && (
+        <div className="mt-2 pt-2 border-t border-border/70 space-y-1">
+          <div className="flex items-center justify-between gap-3">
+            <span className="text-xs text-muted-foreground">{moneyLabel}</span>
+            <span className="text-xs font-mono font-medium">
+              {formatMoney(row.marketValue)}
+            </span>
+          </div>
+          <div className="flex items-center justify-between gap-3">
+            <span className="text-xs text-muted-foreground">仓位</span>
+            <span className="text-xs font-mono font-medium">{fmtPct(row.pct)}</span>
+          </div>
+        </div>
+      )}
+    </>
+  );
+
+  if (isMobile) {
+    return (
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        className="w-full text-left rounded-md px-2 -mx-2 py-1 transition-colors hover:bg-muted/40 cursor-pointer"
+      >
+        {body}
+      </button>
+    );
+  }
+
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <button
+          type="button"
+          className="w-full text-left rounded-md px-2 -mx-2 py-1 transition-colors hover:bg-muted/40 cursor-pointer"
+        >
+          {body}
+        </button>
+      </TooltipTrigger>
+      <TooltipContent side="top" align="start" className="text-xs">
+        <div className="text-sm font-medium mb-1">{row.label}</div>
+        <div className="flex items-center justify-between gap-4">
+          <span className="text-muted-foreground">{moneyLabel}</span>
+          <span className="font-mono font-medium">{formatMoney(row.marketValue)}</span>
+        </div>
+        <div className="flex items-center justify-between gap-4">
+          <span className="text-muted-foreground">仓位</span>
+          <span className="font-mono font-medium">{fmtPct(row.pct)}</span>
+        </div>
+      </TooltipContent>
+    </Tooltip>
   );
 }
