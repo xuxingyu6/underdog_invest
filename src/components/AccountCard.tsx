@@ -85,7 +85,7 @@ export function AccountCard() {
         账号与云同步
       </h3>
       <p className="text-sm text-muted-foreground mt-1 mb-4">
-        登录后持仓会备份到云端；退出或未配置时，仍使用浏览器本地存储。
+        可选登录（邮箱 + 密码）。登录后持仓会备份到云端；退出或未配置时，仍使用浏览器本地存储。
       </p>
 
       {!configured && (

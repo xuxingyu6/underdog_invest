@@ -20,7 +20,7 @@ npm run build
 
 ## 可选：Supabase 云同步
 
-未配置环境变量时，行为与现在完全一样（只写 `localStorage`）。配置后，设置页会出现登录 / 同步状态。
+未配置环境变量时，行为与现在完全一样（只写 `localStorage`）。配置后，设置页可用**邮箱 + 密码**注册 / 登录 / 退出（不使用 magic link）。未登录仍是仅本机模式。
 
 本项目是 **Vite**，浏览器里能读到的变量必须用 `VITE_` 前缀（不是 Next.js 的 `NEXT_PUBLIC_`）。
 
@@ -34,10 +34,8 @@ npm run build
 ### 1. 创建 Supabase 项目
 
 1. 打开 [https://supabase.com/dashboard](https://supabase.com/dashboard) 并新建项目。
-2. **Authentication → Providers**：启用 Email。个人使用建议在 **Authentication → Providers → Email** 关闭 *Confirm email*，这样注册后可立即登录。
-3. **Authentication → URL Configuration**：
-   - Site URL 填线上地址，例如 `https://underdog-invest.vercel.app`
-   - Redirect URLs 加上该地址以及本地 `http://localhost:8080`
+2. **Authentication → Providers**：启用 Email（邮箱 + 密码）。不要依赖 Magic Link；本应用只调用 `signInWithPassword` / `signUp`。
+3. 个人使用建议在 **Authentication → Providers → Email** 关闭 *Confirm email*，这样注册后可立即登录。若保留确认邮件，把 Site URL / Redirect URLs 设成线上地址和 `http://localhost:8080`。
 
 ### 2. 运行 SQL（表 + RLS）
 

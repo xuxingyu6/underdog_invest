@@ -242,6 +242,7 @@ export function CloudSyncProvider({ children }: { children: ReactNode }) {
   const signIn = useCallback(async (email: string, password: string) => {
     const client = getSupabase();
     if (!client) throw new Error("未配置云同步");
+    // Email + password only (no magic link).
     const { error: authError } = await client.auth.signInWithPassword({ email, password });
     if (authError) throw new Error(mapAuthError(authError.message));
   }, []);
