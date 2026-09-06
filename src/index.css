@@ -197,6 +197,27 @@
   .animate-fade-in {
     animation: fade-in 0.2s ease-out;
   }
+
+  .auth-backdrop {
+    background-color: hsl(var(--background));
+    background-image:
+      radial-gradient(ellipse 90% 55% at 50% -12%, hsl(0 0% 92%) 0%, transparent 60%),
+      radial-gradient(ellipse 45% 36% at 100% 110%, hsl(0 0% 93%) 0%, transparent 55%),
+      radial-gradient(ellipse 40% 30% at 0% 100%, hsl(0 0% 94%) 0%, transparent 50%);
+  }
+
+  .dark .auth-backdrop {
+    background-image:
+      radial-gradient(ellipse 90% 55% at 50% -12%, hsl(0 0% 16%) 0%, transparent 60%),
+      radial-gradient(ellipse 45% 36% at 100% 110%, hsl(0 0% 14%) 0%, transparent 55%),
+      radial-gradient(ellipse 40% 30% at 0% 100%, hsl(0 0% 13%) 0%, transparent 50%);
+  }
+
+  .auth-grid {
+    background-image: radial-gradient(hsl(var(--foreground) / 0.07) 1px, transparent 1px);
+    background-size: 20px 20px;
+    mask-image: radial-gradient(ellipse 75% 70% at 50% 42%, black 18%, transparent 78%);
+  }
 }
 
 @keyframes fade-in {

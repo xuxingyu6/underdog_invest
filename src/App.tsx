@@ -8,6 +8,8 @@ import { AuthGate } from "@/components/AuthGate";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { CloudSyncProvider } from "@/hooks/use-cloud-sync";
 import Holdings from "./pages/Holdings";
+import LoginPage from "./pages/Login";
+import RegisterPage from "./pages/Register";
 import Trades from "./pages/Trades";
 import Returns from "./pages/Returns";
 import CalendarPage from "./pages/CalendarPage";
@@ -37,6 +39,8 @@ const App = () => (
           <BrowserRouter>
             <AuthGate>
               <Routes>
+                <Route path="/login" element={<LoginPage />} />
+                <Route path="/register" element={<RegisterPage />} />
                 <Route path="/" element={<Holdings />} />
                 <Route path="/trades" element={<Trades />} />
                 <Route path="/returns" element={<Returns />} />

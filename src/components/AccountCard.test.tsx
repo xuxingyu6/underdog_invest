@@ -1,4 +1,5 @@
 import { render, screen } from "@testing-library/react";
+import { MemoryRouter } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { AccountCard } from "@/components/AccountCard";
 
@@ -33,7 +34,11 @@ describe("AccountCard", () => {
   });
 
   it("shows account and sync status when logged in", () => {
-    render(<AccountCard />);
+    render(
+      <MemoryRouter>
+        <AccountCard />
+      </MemoryRouter>,
+    );
 
     expect(screen.getByText("账号与云同步")).toBeInTheDocument();
     expect(screen.getByText("you@example.com")).toBeInTheDocument();
