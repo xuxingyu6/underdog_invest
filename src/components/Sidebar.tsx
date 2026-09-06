@@ -1,6 +1,7 @@
 import { NavLink } from "react-router-dom";
 import { LayoutDashboard, ArrowLeftRight, LineChart, CalendarDays, Settings, TrendingUp } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useCloudSync } from "@/hooks/use-cloud-sync";
 
 const navItems = [
   { to: "/", label: "持仓", icon: LayoutDashboard, end: true },
@@ -11,6 +12,7 @@ const navItems = [
 ];
 
 export function Sidebar() {
+  const { user, outboundEnabled } = useCloudSync();
   return (
     <aside className="w-60 shrink-0 border-r border-sidebar-border bg-sidebar flex flex-col h-screen sticky top-0">
       <div className="px-6 py-6 border-b border-sidebar-border">
@@ -47,7 +49,7 @@ export function Sidebar() {
       </nav>
 
       <div className="px-6 py-4 border-t border-sidebar-border text-xs text-muted-foreground">
-        数据存于本地浏览器
+        {user && outboundEnabled ? "已登录，数据同步到云端" : "数据存于本地浏览器"}
       </div>
     </aside>
   );

@@ -29,6 +29,8 @@ create trigger portfolios_set_updated_at
 before update on public.portfolios
 for each row
 execute function public.set_portfolios_updated_at();
+-- If the editor rejects EXECUTE FUNCTION, replace the last line with:
+-- execute procedure public.set_portfolios_updated_at();
 
 alter table public.portfolios enable row level security;
 

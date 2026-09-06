@@ -123,6 +123,7 @@ export function CloudSyncProvider({ children }: { children: ReactNode }) {
     try {
       await waitForStoreHydration();
       const cloud = await fetchPortfolio(client, userId);
+      if (userIdRef.current !== userId) return;
       const local = readLocalSnapshot();
       const decision = decideReconcile({
         local,
