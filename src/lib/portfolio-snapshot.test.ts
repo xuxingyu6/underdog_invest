@@ -1,10 +1,12 @@
 import { describe, expect, it } from "vitest";
-import type { Holding, Trade } from "./types";
+import type { ClearedHolding, Holding, Trade } from "./types";
 import {
+  createPortfolioBackup,
   decideReconcile,
   emptySnapshot,
   hasPortfolioData,
   mergeSnapshots,
+  parsePortfolioBackup,
   snapshotCounts,
   type PortfolioSnapshot,
   type SyncMeta,
@@ -49,6 +51,24 @@ describe("hasPortfolioData", () => {
     expect(hasPortfolioData(snap({ holdings: [holding({ id: "h1", symbol: "AAPL" })] }))).toBe(true);
     expect(hasPortfolioData(snap({ trades: [trade({ id: "t1", symbol: "AAPL" })] }))).toBe(true);
     expect(hasPortfolioData(snap({ removedHoldings: [holding({ id: "h2", symbol: "MSFT" })] }))).toBe(true);
+    expect(hasPortfolioData(snap({
+      clearedHoldings: [{
+        id: "c1",
+        symbol: "TSLA",
+        type: "stock",
+        avgBuyCost: 200,
+        avgSellPrice: 250,
+        totalQuantity: 3,
+        soldQuantity: 3,
+        remainingQuantity: 0,
+        fullySold: true,
+        totalRealizedPnl: 150,
+        totalRealizedPnlPct: 25,
+        firstBuyDate: "2026-01-01",
+        lastSellDate: "2026-06-02",
+        clearedAt: "2026-06-02T00:00:00.000Z",
+      }],
+    }))).toBe(true);
   });
 });
 
@@ -166,6 +186,74 @@ describe("snapshotCounts", () => {
           trades: [trade({ id: "t1", symbol: "AAPL" }), trade({ id: "t2", symbol: "AAPL" })],
         }),
       ),
-    ).toEqual({ holdings: 1, trades: 2, returns: 0 });
+    ).toEqual({ holdings: 1, trades: 2, returns: 0, clearedHoldings: 0 });
+  });
+});
+
+const cleared = (overrides: Partial<ClearedHolding> & Pick<ClearedHolding, "id" | "symbol">): ClearedHolding => ({
+  type: "stock",
+  avgBuyCost: 100,
+  avgSellPrice: 120,
+  totalQuantity: 4,
+  soldQuantity: 4,
+  remainingQuantity: 0,
+  fullySold: true,
+  totalRealizedPnl: 80,
+  totalRealizedPnlPct: 20,
+  firstBuyDate: "2026-01-01",
+  lastSellDate: "2026-06-01",
+  clearedAt: "2026-06-01T00:00:00.000Z",
+  ...overrides,
+});
+
+describe("portfolio backup serialize/parse", () => {
+  it("always writes trades and clearedHoldings keys, even when empty", () => {
+    const json = JSON.stringify(createPortfolioBackup(emptySnapshot()));
+    const parsed = JSON.parse(json);
+    expect(parsed).toMatchObject({
+      holdings: [],
+      trades: [],
+      returns: [],
+      clearedHoldings: [],
+      removedHoldings: [],
+      priceHistory: {},
+    });
+    expect(parsed).toHaveProperty("trades");
+    expect(parsed).toHaveProperty("clearedHoldings");
+  });
+
+  it("round-trips trades and cleared holdings through JSON", () => {
+    const backup = createPortfolioBackup(
+      snap({
+        trades: [trade({ id: "t1", symbol: "AAPL", action: "sell", quantity: 4, price: 120 })],
+        clearedHoldings: [cleared({ id: "c1", symbol: "AAPL" })],
+        removedHoldings: [holding({ id: "h-old", symbol: "AAPL", quantity: 4 })],
+      }),
+      { theme: "dark", exportedAt: "2026-09-06T00:00:00.000Z" },
+    );
+
+    const restored = parsePortfolioBackup(JSON.parse(JSON.stringify(backup)));
+    expect(restored.trades).toHaveLength(1);
+    expect(restored.trades[0]).toMatchObject({ id: "t1", symbol: "AAPL", action: "sell" });
+    expect(restored.clearedHoldings).toHaveLength(1);
+    expect(restored.clearedHoldings[0]).toMatchObject({ id: "c1", symbol: "AAPL", fullySold: true });
+    expect(restored.removedHoldings[0]?.symbol).toBe("AAPL");
+    expect(restored.theme).toBe("dark");
+  });
+
+  it("accepts older holdings-only backups and fills missing collections", () => {
+    const restored = parsePortfolioBackup({
+      holdings: [holding({ id: "h1", symbol: "AAPL" })],
+    });
+    expect(restored.holdings).toHaveLength(1);
+    expect(restored.trades).toEqual([]);
+    expect(restored.clearedHoldings).toEqual([]);
+    expect(restored.removedHoldings).toEqual([]);
+  });
+
+  it("rejects files that are not a portfolio object", () => {
+    expect(() => parsePortfolioBackup(null)).toThrow("invalid file");
+    expect(() => parsePortfolioBackup([])).toThrow("invalid file");
+    expect(() => parsePortfolioBackup({ version: 2 })).toThrow("invalid file");
   });
 });

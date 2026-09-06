@@ -1,4 +1,6 @@
 import { beforeEach, describe, expect, it } from "vitest";
+import { applyLocalSnapshot, readLocalSnapshot } from "@/lib/cloud-sync";
+import { createPortfolioBackup, parsePortfolioBackup } from "@/lib/portfolio-snapshot";
 import { useStore } from "@/lib/store";
 
 function resetStore() {
@@ -114,6 +116,108 @@ describe("sold holdings summary", () => {
     expect(sold.soldQuantity).toBe(3);
     expect(sold.remainingQuantity).toBe(0);
     expect(sold.fullySold).toBe(true);
+  });
+
+  it("export then import keeps trades and cleared holdings", () => {
+    useStore.getState().addHolding({
+      symbol: "AAPL",
+      type: "stock",
+      quantity: 10,
+      avgCost: 100,
+      priceId: "AAPL",
+    });
+    useStore.getState().addTrade({
+      date: "2026-06-01",
+      symbol: "AAPL",
+      type: "stock",
+      action: "sell",
+      quantity: 10,
+      price: 130,
+    });
+
+    const before = useStore.getState();
+    expect(before.trades.length).toBeGreaterThanOrEqual(2);
+    expect(before.clearedHoldings).toHaveLength(1);
+    expect(before.holdings.filter((h) => h.symbol === "AAPL")).toHaveLength(0);
+
+    const json = JSON.stringify(createPortfolioBackup(readLocalSnapshot()));
+    const payload = JSON.parse(json);
+    expect(payload.trades.length).toBe(before.trades.length);
+    expect(payload.clearedHoldings.length).toBe(1);
+    expect(payload.removedHoldings.length).toBeGreaterThan(0);
+
+    resetStore();
+    expect(useStore.getState().trades).toHaveLength(0);
+    expect(useStore.getState().clearedHoldings).toHaveLength(0);
+
+    applyLocalSnapshot(parsePortfolioBackup(payload));
+
+    const after = useStore.getState();
+    expect(after.trades).toHaveLength(before.trades.length);
+    expect(after.trades.map((t) => t.action).sort()).toEqual(
+      before.trades.map((t) => t.action).sort(),
+    );
+    expect(after.clearedHoldings).toHaveLength(1);
+    expect(after.clearedHoldings[0]).toMatchObject({
+      symbol: "AAPL",
+      soldQuantity: 10,
+      remainingQuantity: 0,
+      fullySold: true,
+    });
+    expect(after.removedHoldings.some((h) => h.symbol === "AAPL")).toBe(true);
+  });
+
+  it("importAll restores cleared holdings from a trades-only backup", () => {
+    useStore.getState().importAll({
+      holdings: [],
+      trades: [
+        {
+          id: "buy-1",
+          date: "2026-01-01",
+          symbol: "NVDA",
+          type: "stock",
+          action: "buy",
+          quantity: 2,
+          price: 100,
+          createdAt: "2026-01-01T00:00:00.000Z",
+        },
+        {
+          id: "sell-1",
+          date: "2026-03-01",
+          symbol: "NVDA",
+          type: "stock",
+          action: "sell",
+          quantity: 2,
+          price: 140,
+          realizedPnl: 80,
+          realizedPnlPct: 40,
+          createdAt: "2026-03-01T00:00:00.000Z",
+        },
+      ],
+      returns: [],
+      clearedHoldings: [
+        {
+          id: "cleared-nvda",
+          symbol: "NVDA",
+          type: "stock",
+          avgBuyCost: 100,
+          avgSellPrice: 140,
+          totalQuantity: 2,
+          soldQuantity: 2,
+          remainingQuantity: 0,
+          fullySold: true,
+          totalRealizedPnl: 80,
+          totalRealizedPnlPct: 40,
+          firstBuyDate: "2026-01-01",
+          lastSellDate: "2026-03-01",
+          clearedAt: "2026-03-01T00:00:00.000Z",
+        },
+      ],
+    });
+
+    const [sold] = useStore.getState().clearedHoldings;
+    expect(useStore.getState().trades).toHaveLength(2);
+    expect(sold).toMatchObject({ symbol: "NVDA", fullySold: true, soldQuantity: 2 });
   });
 
   it("restores a cloud snapshot including removed holdings", () => {

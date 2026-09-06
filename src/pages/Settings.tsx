@@ -5,7 +5,9 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useStore } from "@/lib/store";
 import { getFinnhubKey, setFinnhubKey } from "@/lib/prices";
-import { getHistory } from "@/lib/priceHistory";
+import { applyLocalSnapshot, readLocalSnapshot } from "@/lib/cloud-sync";
+import { createPortfolioBackup, parsePortfolioBackup } from "@/lib/portfolio-snapshot";
+import { getStoredTheme, setStoredTheme } from "@/hooks/use-theme";
 import { AccountCard } from "@/components/AccountCard";
 import { useCloudSync } from "@/hooks/use-cloud-sync";
 import { Download, Upload, Trash2, Key } from "lucide-react";
@@ -16,7 +18,6 @@ export default function Settings() {
   const trades = useStore((s) => s.trades);
   const returns = useStore((s) => s.returns);
   const clearedHoldings = useStore((s) => s.clearedHoldings);
-  const importAll = useStore((s) => s.importAll);
   const reset = useStore((s) => s.reset);
   const { user, outboundEnabled } = useCloudSync();
 
@@ -26,15 +27,7 @@ export default function Settings() {
   const fileRef = useRef<HTMLInputElement>(null);
 
   const exportJson = () => {
-    const data = {
-      holdings,
-      trades,
-      returns,
-      clearedHoldings,
-      priceHistory: getHistory(),
-      exportedAt: new Date().toISOString(),
-      version: 2,
-    };
+    const data = createPortfolioBackup(readLocalSnapshot(), { theme: getStoredTheme() });
     const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
@@ -49,20 +42,9 @@ export default function Settings() {
     const f = e.target.files?.[0];
     if (!f) return;
     try {
-      const text = await f.text();
-      const data = JSON.parse(text);
-      if (!Array.isArray(data.holdings) || !Array.isArray(data.trades) || !Array.isArray(data.returns)) {
-        throw new Error("invalid file");
-      }
-      if (data.priceHistory && typeof data.priceHistory === "object") {
-        localStorage.setItem("invest-price-history-v1", JSON.stringify(data.priceHistory));
-      }
-      importAll({
-        holdings: data.holdings,
-        trades: data.trades,
-        returns: data.returns,
-        clearedHoldings: data.clearedHoldings ?? [],
-      });
+      const backup = parsePortfolioBackup(JSON.parse(await f.text()));
+      applyLocalSnapshot(backup);
+      if (backup.theme) setStoredTheme(backup.theme);
       toast.success("已导入数据，页面即将刷新");
       setTimeout(() => window.location.reload(), 800);
     } catch {
@@ -81,7 +63,7 @@ export default function Settings() {
     <AppLayout title="设置" subtitle="数据备份、云同步、API Key 与主题管理">
       <div className="grid lg:grid-cols-2 gap-6 max-w-5xl">
         <AccountCard />
-        <Card title="数据备份" desc="导出/导入完整 JSON 备份文件，本地保存的所有持仓、交易和收益数据。">
+        <Card title="数据备份" desc="导出/导入完整 JSON 备份文件，包含持仓、交易记录、已清仓、收益和价格历史。">
           <div className="flex flex-wrap gap-2">
             <Button onClick={exportJson} variant="outline">
               <Download className="w-4 h-4 mr-2" />导出 JSON
@@ -92,7 +74,7 @@ export default function Settings() {
             <input ref={fileRef} type="file" accept="application/json" onChange={onImport} className="hidden" />
           </div>
           <p className="text-xs text-muted-foreground mt-3">
-            当前：{holdings.length} 个持仓 · {trades.length} 条交易 · {returns.length} 条收益记录
+            当前：{holdings.length} 个持仓 · {trades.length} 条交易 · {clearedHoldings.length} 条已清仓 · {returns.length} 条收益记录
           </p>
         </Card>
 

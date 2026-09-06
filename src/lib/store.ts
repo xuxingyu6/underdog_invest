@@ -33,7 +33,13 @@ interface State {
 
   deleteClearedHolding: (id: string) => void;
 
-  importAll: (data: { holdings: Holding[]; trades: Trade[]; returns: ReturnEntry[]; clearedHoldings?: ClearedHolding[] }) => void;
+  importAll: (data: {
+    holdings: Holding[];
+    trades: Trade[];
+    returns: ReturnEntry[];
+    clearedHoldings?: ClearedHolding[];
+    removedHoldings?: Holding[];
+  }) => void;
   applySnapshot: (data: {
     holdings: Holding[];
     trades: Trade[];
@@ -240,6 +246,30 @@ function recomputeClearedHoldings(trades: Trade[], currentHoldings: Holding[], r
   return cleared;
 }
 
+function stateFromSnapshot(data: {
+  holdings?: Holding[];
+  trades?: Trade[];
+  returns?: ReturnEntry[];
+  clearedHoldings?: ClearedHolding[];
+  removedHoldings?: Holding[];
+}) {
+  const holdings = Array.isArray(data.holdings) ? data.holdings : [];
+  const trades = Array.isArray(data.trades) ? data.trades : [];
+  const returns = Array.isArray(data.returns) ? data.returns : [];
+  const removedHoldings = Array.isArray(data.removedHoldings) ? data.removedHoldings : [];
+  const recomputed = recomputeClearedHoldings(trades, holdings, removedHoldings).map(normalizeSoldHolding);
+  const imported = (Array.isArray(data.clearedHoldings) ? data.clearedHoldings : [])
+    .filter((c) => c && typeof c === "object" && c.id && c.symbol)
+    .map(normalizeSoldHolding);
+  return {
+    holdings,
+    trades,
+    returns,
+    removedHoldings,
+    clearedHoldings: recomputed.length > 0 ? recomputed : imported,
+  };
+}
+
 function recalcSellPnl(trades: Trade[], holdings: Holding[], removedHoldings: Holding[]): Trade[] {
   const grouped: Record<string, { trade: Trade; idx: number }[]> = {};
   trades.forEach((t, i) => {
@@ -392,37 +422,34 @@ export const useStore = create<State>()(
       deleteClearedHolding: (id) =>
         set((s) => ({ clearedHoldings: s.clearedHoldings.filter((c) => c.id !== id) })),
 
-      importAll: (data) =>
-        set(() => {
-          const holdings = data.holdings ?? [];
-          const trades = data.trades ?? [];
-          return {
-            holdings,
-            trades,
-            returns: data.returns ?? [],
-            clearedHoldings: recomputeClearedHoldings(trades, holdings, []),
-            removedHoldings: [],
-          };
-        }),
-      applySnapshot: (data) =>
-        set(() => {
-          const holdings = data.holdings ?? [];
-          const trades = data.trades ?? [];
-          const removedHoldings = data.removedHoldings ?? [];
-          return {
-            holdings,
-            trades,
-            returns: data.returns ?? [],
-            removedHoldings,
-            clearedHoldings: recomputeClearedHoldings(trades, holdings, removedHoldings).map(
-              normalizeSoldHolding,
-            ),
-          };
-        }),
+      importAll: (data) => set(() => stateFromSnapshot(data)),
+      applySnapshot: (data) => set(() => stateFromSnapshot(data)),
       reset: () => set({ holdings: [], trades: [], returns: [], clearedHoldings: [], removedHoldings: [] }),
     }),
     {
       name: "invest-tracker-v1",
+      partialize: (state) => ({
+        holdings: state.holdings,
+        trades: state.trades,
+        returns: state.returns,
+        clearedHoldings: state.clearedHoldings,
+        removedHoldings: state.removedHoldings,
+      }),
+      merge: (persistedState, currentState) => {
+        const persisted = (persistedState ?? {}) as Partial<State>;
+        return {
+          ...currentState,
+          holdings: Array.isArray(persisted.holdings) ? persisted.holdings : currentState.holdings,
+          trades: Array.isArray(persisted.trades) ? persisted.trades : currentState.trades,
+          returns: Array.isArray(persisted.returns) ? persisted.returns : currentState.returns,
+          clearedHoldings: Array.isArray(persisted.clearedHoldings)
+            ? persisted.clearedHoldings
+            : currentState.clearedHoldings,
+          removedHoldings: Array.isArray(persisted.removedHoldings)
+            ? persisted.removedHoldings
+            : currentState.removedHoldings,
+        };
+      },
       onRehydrateStorage: () => {
         return (state, error) => {
           if (error || !state) return;
