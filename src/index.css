@@ -197,6 +197,20 @@
   .animate-fade-in {
     animation: fade-in 0.2s ease-out;
   }
+
+  .auth-backdrop {
+    background-color: hsl(var(--background));
+    background-image:
+      radial-gradient(ellipse 90% 60% at 50% -10%, hsl(var(--muted)) 0%, transparent 58%),
+      radial-gradient(ellipse 50% 40% at 100% 100%, hsl(var(--muted) / 0.7) 0%, transparent 50%),
+      radial-gradient(ellipse 40% 30% at 0% 80%, hsl(var(--muted) / 0.5) 0%, transparent 46%);
+  }
+
+  .auth-grid {
+    background-image: radial-gradient(hsl(var(--foreground) / 0.05) 1px, transparent 1px);
+    background-size: 22px 22px;
+    mask-image: radial-gradient(ellipse 70% 70% at 50% 45%, black 20%, transparent 75%);
+  }
 }
 
 @keyframes fade-in {

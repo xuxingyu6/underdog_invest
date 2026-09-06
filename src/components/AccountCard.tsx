@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Cloud, CloudOff, Loader2, LogOut, RefreshCw } from "lucide-react";
-import { AuthForm } from "@/components/AuthForm";
+import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -72,9 +72,13 @@ export function AccountCard() {
       )}
 
       {configured && !user && (
-        <div className="max-w-md">
-          <AuthForm idPrefix="account" />
-        </div>
+        <p className="text-sm text-muted-foreground">
+          尚未登录。请前往{" "}
+          <Link to="/login" className="font-medium text-foreground underline-offset-4 hover:underline">
+            登录
+          </Link>
+          {" "}后使用云同步。
+        </p>
       )}
 
       {configured && user && (

@@ -1,6 +1,9 @@
 import { render, screen } from "@testing-library/react";
+import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { AuthGate, resolveAuthGate } from "@/components/AuthGate";
+import { AuthGate, isAuthRoute, resolveAuthGate } from "@/components/AuthGate";
+import LoginPage from "@/pages/Login";
+import RegisterPage from "@/pages/Register";
 
 const mockSync = vi.hoisted(() => ({
   configured: true,
@@ -13,6 +16,21 @@ const mockSync = vi.hoisted(() => ({
 vi.mock("@/hooks/use-cloud-sync", () => ({
   useCloudSync: () => mockSync,
 }));
+
+function renderGate(path: string, app = <div>持仓内容</div>) {
+  return render(
+    <MemoryRouter initialEntries={[path]}>
+      <AuthGate>
+        <Routes>
+          <Route path="/login" element={<LoginPage />} />
+          <Route path="/register" element={<RegisterPage />} />
+          <Route path="/" element={app} />
+          <Route path="/settings" element={<div>设置内容</div>} />
+        </Routes>
+      </AuthGate>
+    </MemoryRouter>,
+  );
+}
 
 describe("resolveAuthGate", () => {
   it("blocks the app when Supabase is not configured", () => {
@@ -34,6 +52,15 @@ describe("resolveAuthGate", () => {
   });
 });
 
+describe("isAuthRoute", () => {
+  it("treats only login and register as public auth pages", () => {
+    expect(isAuthRoute("/login")).toBe(true);
+    expect(isAuthRoute("/register")).toBe(true);
+    expect(isAuthRoute("/")).toBe(false);
+    expect(isAuthRoute("/settings")).toBe(false);
+  });
+});
+
 describe("AuthGate", () => {
   beforeEach(() => {
     mockSync.configured = true;
@@ -43,40 +70,51 @@ describe("AuthGate", () => {
 
   it("does not flash private content while the session is loading", () => {
     mockSync.loading = true;
-    render(
-      <AuthGate>
-        <div>持仓内容</div>
-      </AuthGate>,
-    );
+    renderGate("/");
 
     expect(screen.queryByText("持仓内容")).not.toBeInTheDocument();
     expect(screen.getByRole("status")).toHaveTextContent("正在连接…");
     expect(screen.queryByRole("button", { name: "登录" })).not.toBeInTheDocument();
   });
 
-  it("shows only the login form when signed out", () => {
-    render(
-      <AuthGate>
-        <nav>持仓</nav>
-        <div>设置内容</div>
-      </AuthGate>,
-    );
+  it("redirects signed-out users from the app to /login", () => {
+    renderGate("/");
 
     expect(screen.getByRole("heading", { name: "登录" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "登录" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "注册" })).toBeInTheDocument();
-    expect(screen.queryByText("持仓")).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "注册" })).not.toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "去注册" })).toHaveAttribute("href", "/register");
+    expect(screen.queryByText("持仓内容")).not.toBeInTheDocument();
+  });
+
+  it("redirects other private routes to /login when signed out", () => {
+    renderGate("/settings");
+
+    expect(screen.getByRole("heading", { name: "登录" })).toBeInTheDocument();
     expect(screen.queryByText("设置内容")).not.toBeInTheDocument();
+  });
+
+  it("shows a separate register page when signed out", () => {
+    renderGate("/register");
+
+    expect(screen.getByRole("heading", { name: "注册" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "注册" })).toBeInTheDocument();
+    expect(screen.getByLabelText("确认密码")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "去登录" })).toHaveAttribute("href", "/login");
+    expect(screen.queryByRole("button", { name: "登录" })).not.toBeInTheDocument();
   });
 
   it("renders the app after a session exists", () => {
     mockSync.user = { id: "u1", email: "you@example.com" };
-    render(
-      <AuthGate>
-        <div>持仓内容</div>
-      </AuthGate>,
-    );
+    renderGate("/");
 
+    expect(screen.getByText("持仓内容")).toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "登录" })).not.toBeInTheDocument();
+  });
+
+  it("sends signed-in users away from /login and /register", () => {
+    mockSync.user = { id: "u1", email: "you@example.com" };
+    renderGate("/login");
     expect(screen.getByText("持仓内容")).toBeInTheDocument();
     expect(screen.queryByRole("heading", { name: "登录" })).not.toBeInTheDocument();
   });
@@ -84,17 +122,27 @@ describe("AuthGate", () => {
   it("returns to the login gate after sign-out", () => {
     mockSync.user = { id: "u1", email: "you@example.com" };
     const { rerender } = render(
-      <AuthGate>
-        <div>持仓内容</div>
-      </AuthGate>,
+      <MemoryRouter initialEntries={["/"]}>
+        <AuthGate>
+          <Routes>
+            <Route path="/login" element={<LoginPage />} />
+            <Route path="/" element={<div>持仓内容</div>} />
+          </Routes>
+        </AuthGate>
+      </MemoryRouter>,
     );
     expect(screen.getByText("持仓内容")).toBeInTheDocument();
 
     mockSync.user = null;
     rerender(
-      <AuthGate>
-        <div>持仓内容</div>
-      </AuthGate>,
+      <MemoryRouter initialEntries={["/"]}>
+        <AuthGate>
+          <Routes>
+            <Route path="/login" element={<LoginPage />} />
+            <Route path="/" element={<div>持仓内容</div>} />
+          </Routes>
+        </AuthGate>
+      </MemoryRouter>,
     );
 
     expect(screen.queryByText("持仓内容")).not.toBeInTheDocument();
@@ -103,11 +151,7 @@ describe("AuthGate", () => {
 
   it("shows 未配置登录 instead of the empty app when Supabase is missing", () => {
     mockSync.configured = false;
-    render(
-      <AuthGate>
-        <div>持仓内容</div>
-      </AuthGate>,
-    );
+    renderGate("/");
 
     expect(screen.getByRole("heading", { name: "未配置登录" })).toBeInTheDocument();
     expect(screen.getByText(/VITE_SUPABASE_URL/)).toBeInTheDocument();
