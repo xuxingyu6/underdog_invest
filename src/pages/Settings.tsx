@@ -6,7 +6,7 @@ import { Label } from "@/components/ui/label";
 import { useStore } from "@/lib/store";
 import { getFinnhubKey, setFinnhubKey } from "@/lib/prices";
 import { applyLocalSnapshot, readLocalSnapshot } from "@/lib/cloud-sync";
-import { createPortfolioBackup, parsePortfolioBackup } from "@/lib/portfolio-snapshot";
+import { createPortfolioBackup, parsePortfolioBackup, snapshotCounts } from "@/lib/portfolio-snapshot";
 import { getStoredTheme, setStoredTheme } from "@/hooks/use-theme";
 import { AccountCard } from "@/components/AccountCard";
 import { useCloudSync } from "@/hooks/use-cloud-sync";
@@ -35,7 +35,10 @@ export default function Settings() {
     a.download = `folio-backup-${new Date().toISOString().slice(0, 10)}.json`;
     a.click();
     URL.revokeObjectURL(url);
-    toast.success("已导出备份文件");
+    const counts = snapshotCounts(data);
+    toast.success(
+      `已导出备份：${counts.holdings} 持仓 · ${counts.trades} 交易 · ${counts.clearedHoldings} 已清仓 · ${counts.returns} 收益`,
+    );
   };
 
   const onImport = async (e: React.ChangeEvent<HTMLInputElement>) => {
