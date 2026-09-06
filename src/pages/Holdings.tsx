@@ -80,12 +80,12 @@ export default function Holdings() {
       subtitle="实时追踪你的资产配置和盈亏"
       actions={
         <>
-          <Button variant="outline" size="sm" onClick={refresh} disabled={loading}>
+          <Button variant="outline" size="sm" className="min-h-11 md:min-h-9" onClick={refresh} disabled={loading}>
             <RefreshCw className={cn("w-4 h-4 mr-2", loading && "animate-spin")} />
             刷新价格
           </Button>
           <HoldingFormDialog trigger={
-            <Button size="sm"><Plus className="w-4 h-4 mr-2" />添加持仓</Button>
+            <Button size="sm" className="min-h-11 md:min-h-9"><Plus className="w-4 h-4 mr-2" />添加持仓</Button>
           } />
         </>
       }
@@ -98,7 +98,7 @@ export default function Holdings() {
 
         <TabsContent value="current" className="mt-6">
           {/* Top KPI cards */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
             <KpiCard label="总资产市值" value={formatMoney(totals.market)} />
             <KpiCard label="持仓成本" value={formatMoney(totals.cost)} />
             <KpiCard
@@ -130,7 +130,7 @@ export default function Holdings() {
 
           {/* Holdings table */}
           <div className="bg-card border border-border rounded-xl overflow-hidden">
-            <div className="px-6 py-4 border-b border-border flex items-center justify-between">
+            <div className="px-4 sm:px-6 py-4 border-b border-border flex items-center justify-between">
               <div>
                 <h3 className="font-semibold">持仓明细</h3>
                 <p className="text-xs text-muted-foreground mt-0.5">
@@ -139,9 +139,9 @@ export default function Holdings() {
               </div>
             </div>
             <div className="overflow-x-auto">
-              <table className="w-full text-sm">
+              <table className="w-full min-w-[48rem] text-sm">
                 <thead>
-                  <tr className="text-left text-xs text-muted-foreground border-b border-border">
+                  <tr className="text-left text-xs text-muted-foreground border-b border-border whitespace-nowrap">
                     <th className="px-6 py-3 font-medium">标的</th>
                     <th className="px-4 py-3 font-medium">类型</th>
                     <th className="px-4 py-3 font-medium text-right">数量</th>
@@ -237,16 +237,16 @@ export default function Holdings() {
 
         <TabsContent value="cleared" className="mt-6">
           <div className="bg-card border border-border rounded-xl overflow-hidden">
-            <div className="px-6 py-4 border-b border-border">
+            <div className="px-4 sm:px-6 py-4 border-b border-border">
               <h3 className="font-semibold">已卖出记录</h3>
               <p className="text-xs text-muted-foreground mt-0.5">
                 记录发生过卖出的标的，部分卖出仍会保留在当前持仓中
               </p>
             </div>
             <div className="overflow-x-auto">
-              <table className="w-full text-sm">
+              <table className="w-full min-w-[48rem] text-sm">
                 <thead>
-                  <tr className="text-left text-xs text-muted-foreground border-b border-border">
+                  <tr className="text-left text-xs text-muted-foreground border-b border-border whitespace-nowrap">
                     <th className="px-6 py-3 font-medium">标的</th>
                     <th className="px-4 py-3 font-medium">类型</th>
                     <th className="px-4 py-3 font-medium text-right">买入均价</th>
@@ -325,9 +325,9 @@ function KpiCard({ label, value, sub, tone = "neutral", customValueClass }: KpiP
   const toneCls =
     customValueClass ?? (tone === "profit" ? "text-profit" : tone === "loss" ? "text-loss" : "");
   return (
-    <div className="bg-card border border-border rounded-xl p-5">
+    <div className="bg-card border border-border rounded-xl p-4 sm:p-5">
       <div className="text-xs text-muted-foreground">{label}</div>
-      <div className={cn("text-2xl font-mono font-semibold mt-1", toneCls)}>{value}</div>
+      <div className={cn("text-xl sm:text-2xl font-mono font-semibold mt-1 break-all", toneCls)}>{value}</div>
       {sub && <div className={cn("text-xs mt-1", toneCls)}>{sub}</div>}
     </div>
   );

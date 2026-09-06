@@ -34,6 +34,13 @@ interface State {
   deleteClearedHolding: (id: string) => void;
 
   importAll: (data: { holdings: Holding[]; trades: Trade[]; returns: ReturnEntry[]; clearedHoldings?: ClearedHolding[] }) => void;
+  applySnapshot: (data: {
+    holdings: Holding[];
+    trades: Trade[];
+    returns: ReturnEntry[];
+    clearedHoldings?: ClearedHolding[];
+    removedHoldings?: Holding[];
+  }) => void;
   reset: () => void;
 }
 
@@ -395,6 +402,21 @@ export const useStore = create<State>()(
             returns: data.returns ?? [],
             clearedHoldings: recomputeClearedHoldings(trades, holdings, []),
             removedHoldings: [],
+          };
+        }),
+      applySnapshot: (data) =>
+        set(() => {
+          const holdings = data.holdings ?? [];
+          const trades = data.trades ?? [];
+          const removedHoldings = data.removedHoldings ?? [];
+          return {
+            holdings,
+            trades,
+            returns: data.returns ?? [],
+            removedHoldings,
+            clearedHoldings: recomputeClearedHoldings(trades, holdings, removedHoldings).map(
+              normalizeSoldHolding,
+            ),
           };
         }),
       reset: () => set({ holdings: [], trades: [], returns: [], clearedHoldings: [], removedHoldings: [] }),

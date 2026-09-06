@@ -44,7 +44,7 @@ export default function CalendarPage() {
         </Tabs>
 
         <div className="ml-auto flex items-center gap-2">
-          <Button variant="outline" size="icon" onClick={() => {
+          <Button variant="outline" size="icon" className="min-h-11 min-w-11" aria-label="上一页" onClick={() => {
             if (view === "month") {
               if (month === 0) { setMonth(11); setYear(year - 1); } else setMonth(month - 1);
             } else setYear(year - 1);
@@ -54,7 +54,7 @@ export default function CalendarPage() {
           <div className="px-4 py-1.5 text-sm font-medium font-mono min-w-[120px] text-center">
             {view === "month" ? `${year} 年 ${MONTH_NAMES[month]}` : `${year} 年`}
           </div>
-          <Button variant="outline" size="icon" onClick={() => {
+          <Button variant="outline" size="icon" className="min-h-11 min-w-11" aria-label="下一页" onClick={() => {
             if (view === "month") {
               if (month === 11) { setMonth(0); setYear(year + 1); } else setMonth(month + 1);
             } else setYear(year + 1);
@@ -100,15 +100,15 @@ function MonthHeatmap({
 
   return (
     <TooltipProvider delayDuration={100}>
-      <div className="bg-card border border-border rounded-xl p-6">
-        <div className="grid grid-cols-7 gap-1.5 text-xs text-muted-foreground mb-2">
+      <div className="bg-card border border-border rounded-xl p-3 sm:p-6">
+        <div className="grid grid-cols-7 gap-1 sm:gap-1.5 text-xs text-muted-foreground mb-2">
           {["日", "一", "二", "三", "四", "五", "六"].map((w) => (
             <div key={w} className="text-center">{w}</div>
           ))}
         </div>
-        <div className="grid grid-cols-7 gap-1.5">
+        <div className="grid grid-cols-7 gap-1 sm:gap-1.5">
           {cells.map((c, i) => {
-            if (!c) return <div key={i} className="h-[96px]" />;
+            if (!c) return <div key={i} className="h-12 sm:h-[96px]" />;
             const entry = dailyMap[c.date];
             const rate = entry?.rate;
             const fill = heatColor(rate);
@@ -119,26 +119,31 @@ function MonthHeatmap({
                   <button
                     onClick={() => entry && setSelectedDate(c.date)}
                     className={cn(
-                      "h-[96px] rounded-lg p-2 flex flex-col transition-all border border-border/50",
-                      entry ? "cursor-pointer hover:shadow-md hover:scale-[1.02]" : "cursor-default",
+                      "h-12 sm:h-[96px] rounded-md sm:rounded-lg p-1 sm:p-2 flex flex-col overflow-hidden transition-all border border-border/50 min-w-0",
+                      entry ? "cursor-pointer hover:shadow-md sm:hover:scale-[1.02]" : "cursor-default",
                     )}
                     style={{ backgroundColor: fill }}
                   >
                     <span className={cn(
-                      "text-[11px] font-mono self-start",
+                      "text-[10px] sm:text-[11px] font-mono self-start",
                       entry ? textColor : "text-muted-foreground",
                     )}>
                       {c.day}
                     </span>
                     {entry && (
-                      <div className={cn("leading-tight text-center mt-auto", textColor)}>
-                        <div className="text-xs font-mono font-medium">
-                          {formatSignedMoney(entry.pnl, 2)}
+                      <>
+                        <div className={cn("hidden sm:block leading-tight text-center mt-auto", textColor)}>
+                          <div className="text-xs font-mono font-medium">
+                            {formatSignedMoney(entry.pnl, 2)}
+                          </div>
+                          <div className="text-[11px] font-mono">
+                            {formatPercent(entry.rate, 2)}
+                          </div>
                         </div>
-                        <div className="text-[11px] font-mono">
-                          {formatPercent(entry.rate, 2)}
+                        <div className={cn("sm:hidden text-[9px] font-mono mt-auto leading-none truncate", textColor)}>
+                          {formatPercent(entry.rate, 0)}
                         </div>
-                      </div>
+                      </>
                     )}
                   </button>
                 </TooltipTrigger>
@@ -273,8 +278,8 @@ function YearHeatmap({
 }) {
   return (
     <TooltipProvider delayDuration={100}>
-      <div className="bg-card border border-border rounded-xl p-6">
-        <div className="grid grid-cols-4 sm:grid-cols-6 gap-3">
+      <div className="bg-card border border-border rounded-xl p-3 sm:p-6">
+        <div className="grid grid-cols-3 sm:grid-cols-4 lg:grid-cols-6 gap-2 sm:gap-3">
           {Array.from({ length: 12 }).map((_, m) => {
             const key = `${year}-${String(m + 1).padStart(2, "0")}`;
             const entry = monthMap[key];
