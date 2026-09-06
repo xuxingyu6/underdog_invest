@@ -79,7 +79,7 @@ export function AccountCard() {
   else if (user) status = "已登录";
 
   return (
-    <div className="bg-card border border-border rounded-xl p-6 lg:col-span-2">
+    <div className="bg-card border border-border rounded-xl p-4 sm:p-6 lg:col-span-2 min-w-0">
       <h3 className="font-semibold flex items-center gap-2">
         {configured ? <Cloud className="w-4 h-4" /> : <CloudOff className="w-4 h-4" />}
         账号与云同步

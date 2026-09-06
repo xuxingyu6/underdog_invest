@@ -4,6 +4,7 @@ import type { PricedHolding } from "@/hooks/use-priced-holdings";
 import { ASSET_TYPE_COLOR, ASSET_TYPE_LABELS, type AssetType } from "@/lib/types";
 import { formatMoney, formatPercent } from "@/lib/format";
 import { cn } from "@/lib/utils";
+import { useIsMobile } from "@/hooks/use-mobile";
 
 interface Props {
   priced: PricedHolding[];
@@ -80,6 +81,7 @@ function renderExternalLabel(props: any) {
 }
 
 export function AllocationPie({ priced }: Props) {
+  const isMobile = useIsMobile();
   const [activeType, setActiveType] = useState<AssetType | null>(null);
 
   const safePriced = useMemo(
@@ -130,17 +132,17 @@ export function AllocationPie({ priced }: Props) {
   }
 
   return (
-    <div className="bg-card border border-border rounded-xl p-6">
+    <div className="bg-card border border-border rounded-xl p-4 sm:p-6 overflow-hidden">
       <div className="grid md:grid-cols-2 gap-6">
-        <div className="h-72 relative">
+        <div className="h-56 sm:h-72 relative">
           <ResponsiveContainer width="100%" height="100%">
             <PieChart>
               <Pie
                 data={slices}
                 dataKey="value"
                 nameKey="name"
-                innerRadius={70}
-                outerRadius={110}
+                innerRadius={isMobile ? 48 : 70}
+                outerRadius={isMobile ? 78 : 110}
                 paddingAngle={1}
                 stroke="hsl(var(--card))"
                 strokeWidth={2}
@@ -148,7 +150,7 @@ export function AllocationPie({ priced }: Props) {
                   const t = e?.payload?.type as AssetType | undefined;
                   setActiveType((cur) => (cur === t ? null : t ?? null));
                 }}
-                label={renderExternalLabel}
+                label={isMobile ? false : renderExternalLabel}
                 labelLine={false}
               >
                 {slices.map((s) => (
@@ -174,7 +176,7 @@ export function AllocationPie({ priced }: Props) {
           </ResponsiveContainer>
           <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
             <div className="text-xs text-muted-foreground">总资产</div>
-            <div className="text-xl font-mono font-semibold">{formatMoney(total)}</div>
+            <div className="text-base sm:text-xl font-mono font-semibold">{formatMoney(total)}</div>
           </div>
         </div>
 

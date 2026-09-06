@@ -32,9 +32,9 @@ export default function Trades() {
     >
       <div className="bg-card border border-border rounded-xl overflow-hidden">
         <div className="overflow-x-auto">
-          <table className="w-full text-sm">
+          <table className="w-full min-w-[56rem] text-sm">
             <thead>
-              <tr className="text-left text-xs text-muted-foreground border-b border-border">
+              <tr className="text-left text-xs text-muted-foreground border-b border-border whitespace-nowrap">
                 <th className="px-6 py-3 font-medium">日期</th>
                 <th className="px-4 py-3 font-medium">标的</th>
                 <th className="px-4 py-3 font-medium">类型</th>
@@ -147,7 +147,7 @@ function TradeFormDialog({ initial, holdings, trigger }: { initial?: import("@/l
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        {trigger ?? <Button size="sm"><Plus className="w-4 h-4 mr-2" />添加交易</Button>}
+        {trigger ?? <Button size="sm" className="min-h-11 md:min-h-9"><Plus className="w-4 h-4 mr-2" />添加交易</Button>}
       </DialogTrigger>
       <DialogContent className="sm:max-w-md">
         <DialogHeader><DialogTitle>{isEdit ? "编辑交易" : "添加交易"}</DialogTitle><DialogDescription>{isEdit ? "修改交易记录的价格、数量等信息" : "记录一笔新的买入或卖出交易"}</DialogDescription></DialogHeader>

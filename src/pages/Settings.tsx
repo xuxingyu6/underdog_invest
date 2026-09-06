@@ -99,14 +99,14 @@ export default function Settings() {
         <Card title="美股 API Key" desc="用于 Finnhub 实时报价（免费注册，每分钟 60 次）。Key 仅保存在浏览器本地。">
           <div className="space-y-2">
             <Label className="flex items-center gap-1.5"><Key className="w-3.5 h-3.5" />Finnhub API Key</Label>
-            <div className="flex gap-2">
+            <div className="flex flex-col sm:flex-row gap-2">
               <Input
                 type="password"
                 value={apiKey}
                 onChange={(e) => setApiKey(e.target.value)}
                 placeholder="粘贴你的 API Key"
               />
-              <Button onClick={saveKey}>保存</Button>
+              <Button onClick={saveKey} className="sm:shrink-0">保存</Button>
             </div>
             <p className="text-xs text-muted-foreground">
               申请地址：<a href="https://finnhub.io/register" target="_blank" rel="noreferrer" className="underline hover:text-foreground">finnhub.io/register</a>
@@ -149,7 +149,7 @@ export default function Settings() {
 
 function Card({ title, desc, children }: { title: string; desc: string; children: React.ReactNode }) {
   return (
-    <div className="bg-card border border-border rounded-xl p-6">
+    <div className="bg-card border border-border rounded-xl p-4 sm:p-6 min-w-0">
       <h3 className="font-semibold">{title}</h3>
       <p className="text-sm text-muted-foreground mt-1 mb-4">{desc}</p>
       {children}

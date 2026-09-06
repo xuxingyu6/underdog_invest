@@ -88,9 +88,9 @@ export default function Returns() {
           <h3 className="font-semibold">收益记录</h3>
         </div>
         <div className="overflow-x-auto">
-          <table className="w-full text-sm">
+          <table className="w-full min-w-[36rem] text-sm">
             <thead>
-              <tr className="text-left text-xs text-muted-foreground border-b border-border">
+              <tr className="text-left text-xs text-muted-foreground border-b border-border whitespace-nowrap">
                 <th className="px-6 py-3 font-medium">周期</th>
                 <th className="px-4 py-3 font-medium">日期/标签</th>
                 <th className="px-4 py-3 font-medium">范围</th>
@@ -131,8 +131,8 @@ function ChartCard({
   title, data, hint,
 }: { title: string; data: { label: string; rate: number; note?: string }[]; hint?: string }) {
   return (
-    <div className="bg-card border border-border rounded-xl p-5">
-      <div className="flex items-baseline justify-between mb-2">
+    <div className="bg-card border border-border rounded-xl p-4 sm:p-5">
+      <div className="flex flex-col sm:flex-row sm:items-baseline sm:justify-between gap-1 mb-2">
         <h3 className="font-semibold">{title}</h3>
         {hint && <span className="text-xs text-muted-foreground">{hint}</span>}
       </div>
@@ -197,7 +197,7 @@ function ReturnFormDialog() {
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button size="sm"><Plus className="w-4 h-4 mr-2" />添加收益率</Button>
+        <Button size="sm" className="min-h-11 md:min-h-9"><Plus className="w-4 h-4 mr-2" />添加收益率</Button>
       </DialogTrigger>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>

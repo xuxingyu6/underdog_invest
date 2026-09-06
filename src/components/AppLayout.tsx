@@ -1,6 +1,8 @@
-import { ReactNode } from "react";
+import { ReactNode, useState } from "react";
+import { Menu } from "lucide-react";
 import { Sidebar } from "./Sidebar";
 import { ThemeToggle } from "./ThemeToggle";
+import { Button } from "@/components/ui/button";
 
 interface Props {
   title: string;
@@ -10,23 +12,37 @@ interface Props {
 }
 
 export function AppLayout({ title, subtitle, actions, children }: Props) {
+  const [mobileNavOpen, setMobileNavOpen] = useState(false);
+
   return (
-    <div className="min-h-screen flex w-full bg-background">
-      <Sidebar />
+    <div className="min-h-screen flex w-full max-w-[100vw] overflow-x-hidden bg-background">
+      <Sidebar mobileOpen={mobileNavOpen} onMobileOpenChange={setMobileNavOpen} />
       <div className="flex-1 flex flex-col min-w-0">
         <header className="sticky top-0 z-10 bg-background/80 backdrop-blur border-b border-border">
-          <div className="flex items-center justify-between px-8 py-5">
-            <div>
-              <h1 className="text-2xl font-semibold tracking-tight">{title}</h1>
-              {subtitle && <p className="text-sm text-muted-foreground mt-0.5">{subtitle}</p>}
+          <div className="flex flex-wrap items-center gap-2 px-4 py-3 md:px-8 md:py-5">
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              className="md:hidden min-h-11 min-w-11"
+              aria-label="打开导航"
+              onClick={() => setMobileNavOpen(true)}
+            >
+              <Menu className="w-5 h-5" />
+            </Button>
+            <div className="min-w-0 flex-1">
+              <h1 className="text-xl md:text-2xl font-semibold tracking-tight truncate">{title}</h1>
+              {subtitle && (
+                <p className="text-xs md:text-sm text-muted-foreground mt-0.5 truncate">{subtitle}</p>
+              )}
             </div>
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center justify-end gap-2 ml-auto">
               {actions}
               <ThemeToggle />
             </div>
           </div>
         </header>
-        <main className="flex-1 px-8 py-6 animate-fade-in">{children}</main>
+        <main className="flex-1 px-4 py-4 md:px-8 md:py-6 animate-fade-in min-w-0">{children}</main>
       </div>
     </div>
   );
