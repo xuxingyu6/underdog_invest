@@ -48,7 +48,10 @@ export default function Settings() {
       const backup = parsePortfolioBackup(JSON.parse(await f.text()));
       applyLocalSnapshot(backup);
       if (backup.theme) setStoredTheme(backup.theme);
-      toast.success("已导入数据，页面即将刷新");
+      const counts = snapshotCounts(backup);
+      toast.success(
+        `已导入：${counts.holdings} 持仓 · ${counts.trades} 交易 · ${counts.clearedHoldings} 已清仓 · ${counts.returns} 收益，页面即将刷新`,
+      );
       setTimeout(() => window.location.reload(), 800);
     } catch {
       toast.error("文件格式不正确");
