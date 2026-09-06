@@ -21,8 +21,8 @@ function formatSyncedAt(iso: string | null): string {
   return date.toLocaleString("zh-CN", { hour12: false });
 }
 
-function countsText(counts: { holdings: number; trades: number; returns: number }) {
-  return `${counts.holdings} 个持仓 · ${counts.trades} 条交易 · ${counts.returns} 条收益`;
+function countsText(counts: { holdings: number; trades: number; returns: number; clearedHoldings: number }) {
+  return `${counts.holdings} 个持仓 · ${counts.trades} 条交易 · ${counts.clearedHoldings} 条已清仓 · ${counts.returns} 条收益`;
 }
 
 export function AccountCard() {

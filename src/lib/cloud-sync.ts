@@ -1,7 +1,8 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { getHistory, setHistory, type History } from "./priceHistory";
+import { getHistory, setHistory } from "./priceHistory";
 import {
   emptySnapshot,
+  normalizeSnapshot,
   type PortfolioSnapshot,
   type SyncMeta,
 } from "./portfolio-snapshot";
@@ -15,16 +16,6 @@ const defaultMeta: SyncMeta = {
   lastSyncedAt: null,
   dirty: false,
 };
-
-function asArray<T>(value: unknown): T[] {
-  return Array.isArray(value) ? (value as T[]) : [];
-}
-
-function asHistory(value: unknown): History {
-  return value && typeof value === "object" && !Array.isArray(value)
-    ? (value as History)
-    : {};
-}
 
 export function loadSyncMeta(): SyncMeta {
   try {
@@ -51,14 +42,14 @@ export function saveSyncMeta(meta: SyncMeta) {
 
 export function readLocalSnapshot(): PortfolioSnapshot {
   const state = useStore.getState();
-  return {
+  return normalizeSnapshot({
     holdings: state.holdings,
     trades: state.trades,
     returns: state.returns,
     clearedHoldings: state.clearedHoldings,
     removedHoldings: state.removedHoldings,
     priceHistory: getHistory(),
-  };
+  });
 }
 
 export function applyLocalSnapshot(snapshot: PortfolioSnapshot) {
@@ -81,15 +72,15 @@ export async function fetchPortfolio(
   if (error) throw error;
   if (!data) return null;
 
-  return {
-    holdings: asArray<Holding>(data.holdings),
-    trades: asArray<Trade>(data.trades),
-    returns: asArray<ReturnEntry>(data.returns),
-    clearedHoldings: asArray<ClearedHolding>(data.cleared_holdings),
-    removedHoldings: asArray<Holding>(data.removed_holdings),
-    priceHistory: asHistory(data.price_history),
+  return normalizeSnapshot({
+    holdings: data.holdings as Holding[],
+    trades: data.trades as Trade[],
+    returns: data.returns as ReturnEntry[],
+    clearedHoldings: data.cleared_holdings as ClearedHolding[],
+    removedHoldings: data.removed_holdings as Holding[],
+    priceHistory: data.price_history,
     updatedAt: typeof data.updated_at === "string" ? data.updated_at : undefined,
-  };
+  });
 }
 
 export async function upsertPortfolio(
@@ -97,14 +88,15 @@ export async function upsertPortfolio(
   userId: string,
   snapshot: PortfolioSnapshot,
 ): Promise<{ updatedAt: string }> {
+  const normalized = normalizeSnapshot(snapshot);
   const payload = {
     user_id: userId,
-    holdings: snapshot.holdings,
-    trades: snapshot.trades,
-    returns: snapshot.returns,
-    cleared_holdings: snapshot.clearedHoldings,
-    removed_holdings: snapshot.removedHoldings,
-    price_history: snapshot.priceHistory ?? {},
+    holdings: normalized.holdings,
+    trades: normalized.trades,
+    returns: normalized.returns,
+    cleared_holdings: normalized.clearedHoldings,
+    removed_holdings: normalized.removedHoldings,
+    price_history: normalized.priceHistory,
   };
 
   const { data, error } = await client

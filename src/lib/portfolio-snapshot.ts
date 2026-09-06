@@ -1,6 +1,8 @@
 import type { ClearedHolding, Holding, ReturnEntry, Trade } from "./types";
 import type { History } from "./priceHistory";
 
+export const PORTFOLIO_BACKUP_VERSION = 3;
+
 export interface PortfolioSnapshot {
   holdings: Holding[];
   trades: Trade[];
@@ -11,10 +13,17 @@ export interface PortfolioSnapshot {
   updatedAt?: string;
 }
 
+export interface PortfolioBackup extends PortfolioSnapshot {
+  version: number;
+  exportedAt: string;
+  theme?: "light" | "dark";
+}
+
 export interface SnapshotCounts {
   holdings: number;
   trades: number;
   returns: number;
+  clearedHoldings: number;
 }
 
 export interface SyncMeta {
@@ -46,6 +55,7 @@ export function snapshotCounts(snapshot: PortfolioSnapshot): SnapshotCounts {
     holdings: snapshot.holdings.length,
     trades: snapshot.trades.length,
     returns: snapshot.returns.length,
+    clearedHoldings: snapshot.clearedHoldings.length,
   };
 }
 
@@ -54,8 +64,70 @@ export function hasPortfolioData(snapshot: PortfolioSnapshot): boolean {
     snapshot.holdings.length > 0 ||
     snapshot.trades.length > 0 ||
     snapshot.returns.length > 0 ||
+    snapshot.clearedHoldings.length > 0 ||
     snapshot.removedHoldings.length > 0
   );
+}
+
+function asArray<T>(value: unknown): T[] {
+  return Array.isArray(value) ? (value as T[]) : [];
+}
+
+function asHistory(value: unknown): History {
+  return value && typeof value === "object" && !Array.isArray(value)
+    ? (value as History)
+    : {};
+}
+
+/** Always emit every persisted collection, including empty arrays. */
+export function normalizeSnapshot(raw: Partial<PortfolioSnapshot> | null | undefined): PortfolioSnapshot {
+  return {
+    holdings: asArray<Holding>(raw?.holdings),
+    trades: asArray<Trade>(raw?.trades),
+    returns: asArray<ReturnEntry>(raw?.returns),
+    clearedHoldings: asArray<ClearedHolding>(raw?.clearedHoldings),
+    removedHoldings: asArray<Holding>(raw?.removedHoldings),
+    priceHistory: asHistory(raw?.priceHistory),
+    updatedAt: typeof raw?.updatedAt === "string" ? raw.updatedAt : undefined,
+  };
+}
+
+export function createPortfolioBackup(
+  snapshot: PortfolioSnapshot,
+  extras: { theme?: "light" | "dark"; exportedAt?: string } = {},
+): PortfolioBackup {
+  const normalized = normalizeSnapshot(snapshot);
+  return {
+    ...normalized,
+    version: PORTFOLIO_BACKUP_VERSION,
+    exportedAt: extras.exportedAt ?? new Date().toISOString(),
+    ...(extras.theme === "light" || extras.theme === "dark" ? { theme: extras.theme } : {}),
+  };
+}
+
+export function parsePortfolioBackup(data: unknown): PortfolioBackup {
+  if (!data || typeof data !== "object" || Array.isArray(data)) {
+    throw new Error("invalid file");
+  }
+  const raw = data as Record<string, unknown>;
+  if (!Array.isArray(raw.holdings) && !Array.isArray(raw.trades)) {
+    throw new Error("invalid file");
+  }
+  const snapshot = normalizeSnapshot({
+    holdings: raw.holdings as Holding[] | undefined,
+    trades: raw.trades as Trade[] | undefined,
+    returns: raw.returns as ReturnEntry[] | undefined,
+    clearedHoldings: raw.clearedHoldings as ClearedHolding[] | undefined,
+    removedHoldings: raw.removedHoldings as Holding[] | undefined,
+    priceHistory: raw.priceHistory as History | undefined,
+    updatedAt: typeof raw.updatedAt === "string" ? raw.updatedAt : undefined,
+  });
+  return {
+    ...snapshot,
+    version: typeof raw.version === "number" ? raw.version : PORTFOLIO_BACKUP_VERSION,
+    exportedAt: typeof raw.exportedAt === "string" ? raw.exportedAt : new Date().toISOString(),
+    theme: raw.theme === "dark" || raw.theme === "light" ? raw.theme : undefined,
+  };
 }
 
 function mergeByKey<T>(
@@ -93,13 +165,15 @@ export function mergeSnapshots(
   local: PortfolioSnapshot,
   cloud: PortfolioSnapshot,
 ): PortfolioSnapshot {
+  const left = normalizeSnapshot(local);
+  const right = normalizeSnapshot(cloud);
   return {
-    holdings: mergeByKey(local.holdings, cloud.holdings, holdingKey),
-    trades: mergeByKey(local.trades, cloud.trades, (t) => t.id),
-    returns: mergeByKey(local.returns, cloud.returns, (r) => r.id),
-    clearedHoldings: mergeByKey(local.clearedHoldings, cloud.clearedHoldings, holdingKey),
-    removedHoldings: mergeByKey(local.removedHoldings, cloud.removedHoldings, holdingKey),
-    priceHistory: mergePriceHistory(local.priceHistory ?? {}, cloud.priceHistory ?? {}),
+    holdings: mergeByKey(left.holdings, right.holdings, holdingKey),
+    trades: mergeByKey(left.trades, right.trades, (t) => t.id),
+    returns: mergeByKey(left.returns, right.returns, (r) => r.id),
+    clearedHoldings: mergeByKey(left.clearedHoldings, right.clearedHoldings, holdingKey),
+    removedHoldings: mergeByKey(left.removedHoldings, right.removedHoldings, holdingKey),
+    priceHistory: mergePriceHistory(left.priceHistory, right.priceHistory),
   };
 }
 
