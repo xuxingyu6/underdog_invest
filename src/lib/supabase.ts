@@ -1,14 +1,19 @@
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 
-export function getSupabaseConfig() {
-  let url = "";
-  let anonKey = "";
+function readViteEnv(name: "VITE_SUPABASE_URL" | "VITE_SUPABASE_ANON_KEY"): string {
   try {
-    url = String(import.meta.env.VITE_SUPABASE_URL ?? "").trim();
-    anonKey = String(import.meta.env.VITE_SUPABASE_ANON_KEY ?? "").trim();
+    const env = import.meta.env as ImportMetaEnv | undefined;
+    const value = env?.[name];
+    return typeof value === "string" ? value.trim() : "";
   } catch {
-    /* Vite replaces these at build time; missing env must not throw. */
+    /* Vite inlines these at build time; missing keys must not throw. */
+    return "";
   }
+}
+
+export function getSupabaseConfig() {
+  const url = readViteEnv("VITE_SUPABASE_URL");
+  const anonKey = readViteEnv("VITE_SUPABASE_ANON_KEY");
   return { url, anonKey, configured: Boolean(url && anonKey) };
 }
 
