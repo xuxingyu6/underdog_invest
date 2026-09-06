@@ -24,7 +24,7 @@ export function AuthShell({ children }: { children: ReactNode }) {
         <ThemeToggle />
       </div>
       <div className="relative z-10 flex flex-1 items-center justify-center px-4 pb-16">
-        <div className="w-full max-w-md rounded-2xl border border-border bg-card/95 p-6 text-card-foreground shadow-lg shadow-black/5 backdrop-blur-sm sm:p-8">
+        <div className="w-full max-w-md rounded-2xl border border-border bg-card/95 p-6 text-card-foreground shadow-xl shadow-black/[0.06] backdrop-blur-sm sm:p-8">
           <div className="mb-6">
             <AuthBrand />
           </div>
