@@ -26,7 +26,7 @@ import {
   type PortfolioSnapshot,
   type SnapshotCounts,
 } from "@/lib/portfolio-snapshot";
-import { getSupabase } from "@/lib/supabase";
+import { getSupabase, getSupabaseConfig } from "@/lib/supabase";
 import { useStore } from "@/lib/store";
 
 export type PendingSync =
@@ -65,7 +65,7 @@ function mapAuthError(message: string): string {
 }
 
 export function CloudSyncProvider({ children }: { children: ReactNode }) {
-  const configured = Boolean(getSupabase());
+  const configured = getSupabaseConfig().configured;
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(configured);
   const [syncing, setSyncing] = useState(false);

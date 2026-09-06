@@ -75,7 +75,7 @@ function mergeByKey<T>(
   return [...map.values()];
 }
 
-function holdingKey(item: { type: string; symbol: string }): string {
+function holdingKey<T extends { type: string; symbol: string }>(item: T): string {
   return `${item.type}:${item.symbol.toLowerCase()}`;
 }
 
