@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { Cloud, CloudOff, Loader2, LogOut, RefreshCw } from "lucide-react";
+import { AuthForm } from "@/components/AuthForm";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -9,10 +10,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { useCloudSync } from "@/hooks/use-cloud-sync";
-import { toast } from "sonner";
 
 function formatSyncedAt(iso: string | null): string {
   if (!iso) return "尚未同步";
@@ -35,41 +33,19 @@ export function AccountCard() {
     error,
     pending,
     outboundEnabled,
-    signIn,
-    signUp,
     signOut,
     pushNow,
     resolveUpload,
     resolveConflict,
   } = useCloudSync();
 
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [busy, setBusy] = useState(false);
   const [dialogOpen, setDialogOpen] = useState(Boolean(pending));
 
   useEffect(() => {
     if (pending) setDialogOpen(true);
   }, [pending]);
 
-  const submit = async (mode: "in" | "up") => {
-    const trimmed = email.trim();
-    if (!trimmed || !password) {
-      toast.error("请输入邮箱和密码");
-      return;
-    }
-    setBusy(true);
-    try {
-      if (mode === "in") await signIn(trimmed, password);
-      else await signUp(trimmed, password);
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : "登录失败");
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  let status = "未登录（仅本机）";
+  let status = "未登录";
   if (!configured) status = "未配置";
   else if (loading) status = "正在连接…";
   else if (user && pending) status = "待确认（尚未覆盖任何数据）";
@@ -85,7 +61,7 @@ export function AccountCard() {
         账号与云同步
       </h3>
       <p className="text-sm text-muted-foreground mt-1 mb-4">
-        可选登录（邮箱 + 密码）。登录后持仓会备份到云端；退出或未配置时，仍使用浏览器本地存储。
+        使用邮箱和密码登录后，持仓会备份到云端。退出登录后需重新登录才能继续使用。
       </p>
 
       {!configured && (
@@ -96,38 +72,8 @@ export function AccountCard() {
       )}
 
       {configured && !user && (
-        <div className="space-y-3 max-w-md">
-          <div className="space-y-1.5">
-            <Label htmlFor="account-email">邮箱</Label>
-            <Input
-              id="account-email"
-              type="email"
-              autoComplete="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              placeholder="you@example.com"
-            />
-          </div>
-          <div className="space-y-1.5">
-            <Label htmlFor="account-password">密码</Label>
-            <Input
-              id="account-password"
-              type="password"
-              autoComplete="current-password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              placeholder="至少 6 位"
-            />
-          </div>
-          <div className="flex flex-wrap gap-2">
-            <Button onClick={() => void submit("in")} disabled={busy || loading}>
-              {busy ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}
-              登录
-            </Button>
-            <Button variant="outline" onClick={() => void submit("up")} disabled={busy || loading}>
-              注册
-            </Button>
-          </div>
+        <div className="max-w-md">
+          <AuthForm idPrefix="account" />
         </div>
       )}
 

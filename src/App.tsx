@@ -4,6 +4,7 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { useEffect } from "react";
+import { AuthGate } from "@/components/AuthGate";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { CloudSyncProvider } from "@/hooks/use-cloud-sync";
 import Holdings from "./pages/Holdings";
@@ -34,14 +35,16 @@ const App = () => (
           <Toaster />
           <Sonner />
           <BrowserRouter>
-            <Routes>
-              <Route path="/" element={<Holdings />} />
-              <Route path="/trades" element={<Trades />} />
-              <Route path="/returns" element={<Returns />} />
-              <Route path="/calendar" element={<CalendarPage />} />
-              <Route path="/settings" element={<Settings />} />
-              <Route path="*" element={<NotFound />} />
-            </Routes>
+            <AuthGate>
+              <Routes>
+                <Route path="/" element={<Holdings />} />
+                <Route path="/trades" element={<Trades />} />
+                <Route path="/returns" element={<Returns />} />
+                <Route path="/calendar" element={<CalendarPage />} />
+                <Route path="/settings" element={<Settings />} />
+                <Route path="*" element={<NotFound />} />
+              </Routes>
+            </AuthGate>
           </BrowserRouter>
         </TooltipProvider>
       </CloudSyncProvider>
