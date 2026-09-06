@@ -6,6 +6,8 @@ import { Label } from "@/components/ui/label";
 import { useStore } from "@/lib/store";
 import { getFinnhubKey, setFinnhubKey } from "@/lib/prices";
 import { getHistory } from "@/lib/priceHistory";
+import { AccountCard } from "@/components/AccountCard";
+import { useCloudSync } from "@/hooks/use-cloud-sync";
 import { Download, Upload, Trash2, Key } from "lucide-react";
 import { toast } from "sonner";
 
@@ -16,6 +18,7 @@ export default function Settings() {
   const clearedHoldings = useStore((s) => s.clearedHoldings);
   const importAll = useStore((s) => s.importAll);
   const reset = useStore((s) => s.reset);
+  const { user, outboundEnabled } = useCloudSync();
 
   const [apiKey, setApiKey] = useState("");
   useEffect(() => { setApiKey(getFinnhubKey()); }, []);
@@ -75,8 +78,9 @@ export default function Settings() {
   };
 
   return (
-    <AppLayout title="设置" subtitle="数据备份、API Key 与主题管理">
+    <AppLayout title="设置" subtitle="数据备份、云同步、API Key 与主题管理">
       <div className="grid lg:grid-cols-2 gap-6 max-w-5xl">
+        <AccountCard />
         <Card title="数据备份" desc="导出/导入完整 JSON 备份文件，本地保存的所有持仓、交易和收益数据。">
           <div className="flex flex-wrap gap-2">
             <Button onClick={exportJson} variant="outline">
@@ -114,11 +118,22 @@ export default function Settings() {
           <p className="text-sm text-muted-foreground">主题选择会自动保存。</p>
         </Card>
 
-        <Card title="重置数据" desc="清空所有本地数据，操作不可恢复，建议先导出备份。">
+        <Card
+          title="重置数据"
+          desc={
+            user && outboundEnabled
+              ? "清空本机数据，并在已登录时同步为空到云端。操作不可恢复，建议先导出备份。"
+              : "清空所有本地数据，操作不可恢复，建议先导出备份。"
+          }
+        >
           <Button
             variant="destructive"
             onClick={() => {
-              if (confirm("确定要清空所有数据吗？此操作不可恢复。")) {
+              const message =
+                user && outboundEnabled
+                  ? "确定要清空本机和云端数据吗？此操作不可恢复。"
+                  : "确定要清空所有数据吗？此操作不可恢复。";
+              if (confirm(message)) {
                 reset();
                 toast.success("已重置");
               }

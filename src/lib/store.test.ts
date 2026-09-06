@@ -115,4 +115,34 @@ describe("sold holdings summary", () => {
     expect(sold.remainingQuantity).toBe(0);
     expect(sold.fullySold).toBe(true);
   });
+
+  it("restores a cloud snapshot including removed holdings", () => {
+    useStore.getState().applySnapshot({
+      holdings: [
+        {
+          id: "cash-1",
+          symbol: "现金",
+          type: "cash",
+          quantity: 500,
+          avgCost: 1,
+          createdAt: "2026-01-01T00:00:00.000Z",
+        },
+      ],
+      trades: [],
+      returns: [],
+      removedHoldings: [
+        {
+          id: "old-1",
+          symbol: "AAPL",
+          type: "stock",
+          quantity: 2,
+          avgCost: 100,
+          createdAt: "2026-01-01T00:00:00.000Z",
+        },
+      ],
+    });
+
+    expect(useStore.getState().holdings).toHaveLength(1);
+    expect(useStore.getState().removedHoldings[0]?.symbol).toBe("AAPL");
+  });
 });

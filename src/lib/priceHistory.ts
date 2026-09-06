@@ -72,6 +72,10 @@ export function getHistory(): History {
   return read();
 }
 
+export function setHistory(history: History) {
+  write(history && typeof history === "object" ? history : {});
+}
+
 export function clearHistory() {
   try { localStorage.removeItem(KEY); } catch { /* ignore */ }
 }

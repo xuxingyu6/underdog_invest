@@ -5,6 +5,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { useEffect } from "react";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
+import { CloudSyncProvider } from "@/hooks/use-cloud-sync";
 import Holdings from "./pages/Holdings";
 import Trades from "./pages/Trades";
 import Returns from "./pages/Returns";
@@ -27,22 +28,24 @@ function ThemeBootstrap() {
 const App = () => (
   <ErrorBoundary>
     <QueryClientProvider client={queryClient}>
-      <TooltipProvider>
-        <ThemeBootstrap />
-        <Toaster />
-        <Sonner />
-        <BrowserRouter>
-        <Routes>
-          <Route path="/" element={<Holdings />} />
-          <Route path="/trades" element={<Trades />} />
-          <Route path="/returns" element={<Returns />} />
-          <Route path="/calendar" element={<CalendarPage />} />
-          <Route path="/settings" element={<Settings />} />
-          <Route path="*" element={<NotFound />} />
-        </Routes>
-      </BrowserRouter>
-    </TooltipProvider>
-  </QueryClientProvider>
+      <CloudSyncProvider>
+        <TooltipProvider>
+          <ThemeBootstrap />
+          <Toaster />
+          <Sonner />
+          <BrowserRouter>
+            <Routes>
+              <Route path="/" element={<Holdings />} />
+              <Route path="/trades" element={<Trades />} />
+              <Route path="/returns" element={<Returns />} />
+              <Route path="/calendar" element={<CalendarPage />} />
+              <Route path="/settings" element={<Settings />} />
+              <Route path="*" element={<NotFound />} />
+            </Routes>
+          </BrowserRouter>
+        </TooltipProvider>
+      </CloudSyncProvider>
+    </QueryClientProvider>
   </ErrorBoundary>
 );
 
