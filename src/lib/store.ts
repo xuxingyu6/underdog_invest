@@ -11,6 +11,87 @@ function todayKey() {
   return `${year}-${month}-${day}`;
 }
 
+function positionKey(type: string, symbol: string): string {
+  return `${type}:${symbol.trim().toLowerCase()}`;
+}
+
+function weightedAvgCost(currentQty: number, currentAvg: number, addQty: number, addAvg: number): number {
+  const totalQty = currentQty + addQty;
+  if (!(totalQty > 0)) return currentAvg;
+  return (currentQty * currentAvg + addQty * addAvg) / totalQty;
+}
+
+/** One row per symbol+type. Later rows fill blank metadata only; id stays the first row's. */
+function collapseHoldingGroup(group: Holding[]): Holding {
+  const [first, ...rest] = group;
+  if (rest.length === 0) return first;
+  let quantity = first.quantity;
+  let avgCost = first.avgCost;
+  let name = first.name;
+  let note = first.note;
+  let priceId = first.priceId;
+  let manualPrice = first.manualPrice;
+  for (const row of rest) {
+    avgCost = weightedAvgCost(quantity, avgCost, row.quantity, row.avgCost);
+    quantity += row.quantity;
+    if (!name && row.name) name = row.name;
+    if (!note && row.note) note = row.note;
+    if (!priceId && row.priceId) priceId = row.priceId;
+    if (manualPrice == null && row.manualPrice != null) manualPrice = row.manualPrice;
+  }
+  return { ...first, quantity, avgCost, name, note, priceId, manualPrice };
+}
+
+function mergeDuplicateHoldings(holdings: Holding[]): Holding[] {
+  const groups = new Map<string, Holding[]>();
+  const order: string[] = [];
+  for (const holding of holdings) {
+    const key = positionKey(holding.type, holding.symbol);
+    const group = groups.get(key);
+    if (group) group.push(holding);
+    else {
+      groups.set(key, [holding]);
+      order.push(key);
+    }
+  }
+  return order.map((key) => collapseHoldingGroup(groups.get(key)!));
+}
+
+function withMergedHolding(
+  holdings: Holding[],
+  incoming: Omit<Holding, "id" | "createdAt">,
+  createdAt: string,
+): Holding[] {
+  const key = positionKey(incoming.type, incoming.symbol);
+  const matches = holdings.filter((row) => positionKey(row.type, row.symbol) === key);
+  if (matches.length === 0) {
+    return [...holdings, { ...incoming, id: uid(), createdAt }];
+  }
+  const base = collapseHoldingGroup(matches);
+  const merged: Holding = {
+    ...base,
+    quantity: base.quantity + incoming.quantity,
+    avgCost: weightedAvgCost(base.quantity, base.avgCost, incoming.quantity, incoming.avgCost),
+  };
+  // Keep the existing row's note. The new note is stored on the generated buy trade.
+  if (!merged.name && incoming.name) merged.name = incoming.name;
+  if (!merged.priceId && incoming.priceId) merged.priceId = incoming.priceId;
+  if (merged.manualPrice == null && incoming.manualPrice != null) merged.manualPrice = incoming.manualPrice;
+  let placed = false;
+  const next: Holding[] = [];
+  for (const row of holdings) {
+    if (positionKey(row.type, row.symbol) !== key) {
+      next.push(row);
+      continue;
+    }
+    if (!placed) {
+      next.push(merged);
+      placed = true;
+    }
+  }
+  return next;
+}
+
 interface State {
   holdings: Holding[];
   trades: Trade[];
@@ -320,8 +401,8 @@ export const useStore = create<State>()(
       addHolding: (h) =>
         set((s) => {
           const createdAt = new Date().toISOString();
-          const holding: Holding = { ...h, id: uid(), createdAt };
-          const holdings = [...s.holdings, holding];
+          // Same symbol+type is one position: add quantity and recompute weighted avg cost.
+          const holdings = withMergedHolding(s.holdings, h, createdAt);
           const trades =
             h.type === "cash"
               ? s.trades
@@ -450,39 +531,29 @@ export const useStore = create<State>()(
             : currentState.removedHoldings,
         };
       },
+      // Local reload collapses duplicate symbol+type rows left by older builds
+      // (sum quantity, weighted avgCost, keep the first row's id and metadata).
+      // Import and cloud snapshot apply leave stored rows as-is; adding that
+      // symbol again also folds its duplicates. Trades are not rewritten.
       onRehydrateStorage: () => {
         return (state, error) => {
           if (error || !state) return;
-          if (Array.isArray(state.holdings)) {
-            state.holdings = state.holdings.filter((h) => h && typeof h === "object" && h.id && h.symbol);
-          } else {
-            state.holdings = [];
-          }
-          if (Array.isArray(state.trades)) {
-            state.trades = state.trades.filter((t) => t && typeof t === "object" && t.id && t.symbol);
-          } else {
-            state.trades = [];
-          }
-          if (Array.isArray(state.returns)) {
-            state.returns = state.returns.filter((r) => r && typeof r === "object" && r.id);
-          } else {
-            state.returns = [];
-          }
-          if (!Array.isArray(state.clearedHoldings)) {
-            state.clearedHoldings = [];
-          } else {
-            state.clearedHoldings = state.clearedHoldings
-              .filter((c) => c && typeof c === "object" && c.id && c.symbol)
-              .map(normalizeSoldHolding);
-          }
-          if (!Array.isArray(state.removedHoldings)) {
-            state.removedHoldings = [];
-          }
-          state.clearedHoldings = recomputeClearedHoldings(
-            state.trades,
-            state.holdings,
-            state.removedHoldings,
-          ).map(normalizeSoldHolding);
+          const holdings = mergeDuplicateHoldings(
+            Array.isArray(state.holdings)
+              ? state.holdings.filter((h) => h && typeof h === "object" && h.id && h.symbol)
+              : [],
+          );
+          const trades = Array.isArray(state.trades)
+            ? state.trades.filter((t) => t && typeof t === "object" && t.id && t.symbol)
+            : [];
+          const returns = Array.isArray(state.returns)
+            ? state.returns.filter((r) => r && typeof r === "object" && r.id)
+            : [];
+          const removedHoldings = Array.isArray(state.removedHoldings) ? state.removedHoldings : [];
+          const clearedHoldings = recomputeClearedHoldings(trades, holdings, removedHoldings).map(
+            normalizeSoldHolding,
+          );
+          useStore.setState({ holdings, trades, returns, removedHoldings, clearedHoldings });
         };
       },
     },

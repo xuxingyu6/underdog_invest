@@ -250,3 +250,256 @@ describe("sold holdings summary", () => {
     expect(useStore.getState().removedHoldings[0]?.symbol).toBe("AAPL");
   });
 });
+
+describe("addHolding merges the same symbol and type", () => {
+  beforeEach(resetStore);
+
+  it("merges a second add into one row with weighted average cost and keeps both buy trades", () => {
+    useStore.getState().addHolding({
+      symbol: "SPCX",
+      type: "stock",
+      quantity: 3,
+      avgCost: 126.51,
+      priceId: "SPCX",
+      name: "SPCX",
+      note: "first lot",
+    });
+    const first = useStore.getState().holdings[0];
+
+    useStore.getState().addHolding({
+      symbol: "spcx",
+      type: "stock",
+      quantity: 7,
+      avgCost: 147.15,
+      priceId: "SPCX",
+      name: "renamed",
+      note: "add more",
+    });
+
+    const holdings = useStore.getState().holdings;
+    expect(holdings).toHaveLength(1);
+    expect(holdings[0]).toMatchObject({
+      id: first.id,
+      createdAt: first.createdAt,
+      symbol: "SPCX",
+      name: "SPCX",
+      note: "first lot",
+      type: "stock",
+      quantity: 10,
+      priceId: "SPCX",
+    });
+    expect(holdings[0].avgCost).toBeCloseTo((3 * 126.51 + 7 * 147.15) / 10, 8);
+
+    const trades = useStore.getState().trades;
+    expect(trades).toHaveLength(2);
+    expect(trades.map((t) => t.action)).toEqual(["buy", "buy"]);
+    expect(trades.map((t) => ({ quantity: t.quantity, price: t.price, symbol: t.symbol }))).toEqual([
+      { quantity: 7, price: 147.15, symbol: "SPCX" },
+      { quantity: 3, price: 126.51, symbol: "SPCX" },
+    ]);
+    expect(trades[0].note).toBe("添加持仓自动生成 · add more");
+    expect(trades[1].note).toBe("添加持仓自动生成 · first lot");
+  });
+
+  it("keeps other symbols in place when merging", () => {
+    useStore.getState().addHolding({
+      symbol: "AAA",
+      type: "stock",
+      quantity: 1,
+      avgCost: 1,
+      priceId: "AAA",
+    });
+    useStore.getState().addHolding({
+      symbol: "SPCX",
+      type: "stock",
+      quantity: 3,
+      avgCost: 10,
+      priceId: "SPCX",
+    });
+    useStore.getState().addHolding({
+      symbol: "ZZZ",
+      type: "stock",
+      quantity: 1,
+      avgCost: 1,
+      priceId: "ZZZ",
+    });
+    useStore.getState().addHolding({
+      symbol: "SPCX",
+      type: "stock",
+      quantity: 1,
+      avgCost: 20,
+      priceId: "SPCX",
+    });
+
+    const holdings = useStore.getState().holdings;
+    expect(holdings.map((h) => h.symbol)).toEqual(["AAA", "SPCX", "ZZZ"]);
+    expect(holdings[1].quantity).toBe(4);
+    expect(holdings[1].avgCost).toBe(12.5);
+    expect(useStore.getState().trades).toHaveLength(4);
+  });
+
+  it("does not merge the same symbol across asset types", () => {
+    useStore.getState().addHolding({
+      symbol: "SPCX",
+      type: "stock",
+      quantity: 3,
+      avgCost: 100,
+      priceId: "SPCX",
+    });
+    useStore.getState().addHolding({
+      symbol: "SPCX",
+      type: "crypto",
+      quantity: 7,
+      avgCost: 2,
+      priceId: "spcx",
+    });
+
+    const holdings = useStore.getState().holdings;
+    expect(holdings).toHaveLength(2);
+    expect(holdings.find((h) => h.type === "stock")?.quantity).toBe(3);
+    expect(holdings.find((h) => h.type === "crypto")?.quantity).toBe(7);
+    expect(useStore.getState().trades).toHaveLength(2);
+  });
+
+  it("merges cash and other holdings by symbol and type without a cash trade", () => {
+    useStore.getState().addHolding({
+      symbol: "现金",
+      name: "现金",
+      type: "cash",
+      quantity: 1000,
+      avgCost: 1,
+      manualPrice: 1,
+    });
+    const cashId = useStore.getState().holdings[0].id;
+    useStore.getState().addHolding({
+      symbol: "现金",
+      name: "USD",
+      type: "cash",
+      quantity: 250,
+      avgCost: 1,
+      manualPrice: 1,
+    });
+    useStore.getState().addHolding({
+      symbol: "黄金",
+      type: "other",
+      quantity: 2,
+      avgCost: 100,
+      manualPrice: 110,
+    });
+    useStore.getState().addHolding({
+      symbol: "黄金",
+      type: "other",
+      quantity: 2,
+      avgCost: 200,
+      manualPrice: 180,
+    });
+
+    const cash = useStore.getState().holdings.find((h) => h.type === "cash");
+    const other = useStore.getState().holdings.find((h) => h.type === "other");
+    expect(useStore.getState().holdings).toHaveLength(2);
+    expect(cash).toMatchObject({ id: cashId, quantity: 1250, avgCost: 1, name: "现金" });
+    expect(other).toMatchObject({ quantity: 4, avgCost: 150, manualPrice: 110 });
+    expect(useStore.getState().trades.map((t) => t.symbol)).toEqual(["黄金", "黄金"]);
+  });
+
+  it("folds already-split rows of that symbol when adding again", () => {
+    useStore.setState({
+      holdings: [
+        {
+          id: "a",
+          symbol: "SPCX",
+          type: "stock",
+          quantity: 3,
+          avgCost: 100,
+          createdAt: "2026-01-01T00:00:00.000Z",
+        },
+        {
+          id: "b",
+          symbol: "SPCX",
+          type: "stock",
+          quantity: 7,
+          avgCost: 200,
+          createdAt: "2026-02-01T00:00:00.000Z",
+        },
+      ],
+      trades: [],
+    });
+
+    useStore.getState().addHolding({
+      symbol: "SPCX",
+      type: "stock",
+      quantity: 1,
+      avgCost: 50,
+      priceId: "SPCX",
+    });
+
+    const holdings = useStore.getState().holdings;
+    expect(holdings).toHaveLength(1);
+    expect(holdings[0].id).toBe("a");
+    expect(holdings[0].quantity).toBe(11);
+    expect(holdings[0].avgCost).toBeCloseTo((3 * 100 + 7 * 200 + 1 * 50) / 11, 8);
+    expect(useStore.getState().trades).toHaveLength(1);
+    expect(useStore.getState().trades[0]).toMatchObject({ action: "buy", quantity: 1, price: 50 });
+  });
+
+  it("collapses duplicate symbol+type rows when local storage rehydrates", async () => {
+    localStorage.setItem(
+      "invest-tracker-v1",
+      JSON.stringify({
+        state: {
+          holdings: [
+            {
+              id: "a",
+              symbol: "SPCX",
+              type: "stock",
+              quantity: 3,
+              avgCost: 126.51,
+              name: "First",
+              priceId: "SPCX",
+              createdAt: "2026-01-01T00:00:00.000Z",
+            },
+            {
+              id: "b",
+              symbol: "spcx",
+              type: "stock",
+              quantity: 7,
+              avgCost: 147.15,
+              name: "Second",
+              createdAt: "2026-02-01T00:00:00.000Z",
+            },
+            {
+              id: "c",
+              symbol: "SPCX",
+              type: "crypto",
+              quantity: 1,
+              avgCost: 9,
+              createdAt: "2026-01-01T00:00:00.000Z",
+            },
+          ],
+          trades: [],
+          returns: [],
+          clearedHoldings: [],
+          removedHoldings: [],
+        },
+        version: 0,
+      }),
+    );
+
+    await useStore.persist.rehydrate();
+
+    const holdings = useStore.getState().holdings;
+    const stock = holdings.filter((h) => h.type === "stock");
+    expect(stock).toHaveLength(1);
+    expect(stock[0]).toMatchObject({
+      id: "a",
+      symbol: "SPCX",
+      name: "First",
+      quantity: 10,
+      priceId: "SPCX",
+    });
+    expect(stock[0].avgCost).toBeCloseTo((3 * 126.51 + 7 * 147.15) / 10, 8);
+    expect(holdings.filter((h) => h.type === "crypto")).toEqual([
+      expect.objectContaining({ id: "c", quantity: 1, avgCost: 9 }),
+    ]);
+  });
+});
