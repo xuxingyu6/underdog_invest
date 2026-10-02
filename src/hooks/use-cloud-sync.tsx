@@ -11,6 +11,7 @@ import {
 import type { User } from "@supabase/supabase-js";
 import { toast } from "sonner";
 import {
+  applyCloudSnapshot,
   applyLocalSnapshot,
   fetchPortfolio,
   loadSyncMeta,
@@ -133,12 +134,14 @@ export function CloudSyncProvider({ children }: { children: ReactNode }) {
       });
 
       if (decision.type === "apply-cloud") {
-        applyRemote(decision.snapshot);
-        markMeta({
-          userId,
-          lastSyncedAt: decision.snapshot.updatedAt ?? new Date().toISOString(),
-          dirty: false,
-        });
+        const wroteCollapsed = await applyCloudSnapshot(decision.snapshot, (next) => pushSnapshot(next));
+        if (!wroteCollapsed) {
+          markMeta({
+            userId,
+            lastSyncedAt: decision.snapshot.updatedAt ?? new Date().toISOString(),
+            dirty: false,
+          });
+        }
         setOutboundEnabled(true);
       } else if (decision.type === "push-local") {
         await pushSnapshot(local);
@@ -162,7 +165,7 @@ export function CloudSyncProvider({ children }: { children: ReactNode }) {
     } finally {
       setLoading(false);
     }
-  }, [applyRemote, markMeta, pushSnapshot]);
+  }, [markMeta, pushSnapshot]);
 
   useEffect(() => {
     const client = getSupabase();
@@ -302,12 +305,14 @@ export function CloudSyncProvider({ children }: { children: ReactNode }) {
     if (!pending || pending.kind !== "conflict" || !userIdRef.current) return;
     try {
       if (choice === "cloud") {
-        applyRemote(pending.cloudSnapshot);
-        markMeta({
-          userId: userIdRef.current,
-          lastSyncedAt: pending.cloudSnapshot.updatedAt ?? new Date().toISOString(),
-          dirty: false,
-        });
+        const wroteCollapsed = await applyCloudSnapshot(pending.cloudSnapshot, (next) => pushSnapshot(next));
+        if (!wroteCollapsed) {
+          markMeta({
+            userId: userIdRef.current,
+            lastSyncedAt: pending.cloudSnapshot.updatedAt ?? new Date().toISOString(),
+            dirty: false,
+          });
+        }
         setOutboundEnabled(true);
         toast.success("已使用云端数据");
       } else if (choice === "local") {
@@ -317,7 +322,7 @@ export function CloudSyncProvider({ children }: { children: ReactNode }) {
       } else {
         const merged = mergeSnapshots(readLocalSnapshot(), pending.cloudSnapshot);
         applyRemote(merged);
-        await pushSnapshot(merged);
+        await pushSnapshot(readLocalSnapshot());
         setOutboundEnabled(true);
         toast.success("已合并本机与云端数据");
       }

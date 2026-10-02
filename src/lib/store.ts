@@ -45,7 +45,12 @@ function collapseHoldingGroup(group: Holding[]): Holding {
 function mergeDuplicateHoldings(holdings: Holding[]): Holding[] {
   const groups = new Map<string, Holding[]>();
   const order: string[] = [];
+  const rest: Holding[] = [];
   for (const holding of holdings) {
+    if (!holding || typeof holding.symbol !== "string" || !holding.type) {
+      if (holding) rest.push(holding);
+      continue;
+    }
     const key = positionKey(holding.type, holding.symbol);
     const group = groups.get(key);
     if (group) group.push(holding);
@@ -54,7 +59,7 @@ function mergeDuplicateHoldings(holdings: Holding[]): Holding[] {
       order.push(key);
     }
   }
-  return order.map((key) => collapseHoldingGroup(groups.get(key)!));
+  return [...order.map((key) => collapseHoldingGroup(groups.get(key)!)), ...rest];
 }
 
 function withMergedHolding(
@@ -334,7 +339,7 @@ function stateFromSnapshot(data: {
   clearedHoldings?: ClearedHolding[];
   removedHoldings?: Holding[];
 }) {
-  const holdings = Array.isArray(data.holdings) ? data.holdings : [];
+  const holdings = mergeDuplicateHoldings(Array.isArray(data.holdings) ? data.holdings : []);
   const trades = Array.isArray(data.trades) ? data.trades : [];
   const returns = Array.isArray(data.returns) ? data.returns : [];
   const removedHoldings = Array.isArray(data.removedHoldings) ? data.removedHoldings : [];
@@ -531,10 +536,9 @@ export const useStore = create<State>()(
             : currentState.removedHoldings,
         };
       },
-      // Local reload collapses duplicate symbol+type rows left by older builds
-      // (sum quantity, weighted avgCost, keep the first row's id and metadata).
-      // Import and cloud snapshot apply leave stored rows as-is; adding that
-      // symbol again also folds its duplicates. Trades are not rewritten.
+      // Local rehydrate and stateFromSnapshot (cloud apply + import) both collapse
+      // duplicate symbol+type rows. Quantity is summed, avgCost is the weighted
+      // average, and the first row's id and metadata are kept. Trades are not rewritten.
       onRehydrateStorage: () => {
         return (state, error) => {
           if (error || !state) return;

@@ -57,6 +57,24 @@ export function applyLocalSnapshot(snapshot: PortfolioSnapshot) {
   useStore.getState().applySnapshot(snapshot);
 }
 
+/**
+ * Apply a cloud (or imported) snapshot, then push when duplicate holdings were
+ * collapsed. Without the write-back, the next clean sync reapplies the cloud
+ * copy and the duplicate rows return.
+ * Returns true when a collapsed snapshot was pushed.
+ */
+export async function applyCloudSnapshot(
+  snapshot: PortfolioSnapshot,
+  push: (next: PortfolioSnapshot) => Promise<void>,
+): Promise<boolean> {
+  const before = snapshot.holdings.length;
+  applyLocalSnapshot(snapshot);
+  const local = readLocalSnapshot();
+  if (local.holdings.length === before) return false;
+  await push(local);
+  return true;
+}
+
 export async function fetchPortfolio(
   client: SupabaseClient,
   userId: string,

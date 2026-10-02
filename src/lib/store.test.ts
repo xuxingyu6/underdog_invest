@@ -503,3 +503,105 @@ describe("addHolding merges the same symbol and type", () => {
     ]);
   });
 });
+
+const duplicateSpcxHoldings = [
+  {
+    id: "a",
+    symbol: "SPCX",
+    type: "stock" as const,
+    quantity: 3,
+    avgCost: 126.51,
+    name: "First",
+    priceId: "SPCX",
+    createdAt: "2026-01-01T00:00:00.000Z",
+  },
+  {
+    id: "b",
+    symbol: "spcx",
+    type: "stock" as const,
+    quantity: 7,
+    avgCost: 147.15,
+    name: "Second",
+    createdAt: "2026-02-01T00:00:00.000Z",
+  },
+  {
+    id: "c",
+    symbol: "SPCX",
+    type: "crypto" as const,
+    quantity: 1,
+    avgCost: 9,
+    createdAt: "2026-01-01T00:00:00.000Z",
+  },
+];
+
+describe("portfolio load collapses duplicate holdings", () => {
+  beforeEach(resetStore);
+
+  it("applySnapshot merges two SPCX rows into one and leaves trades in place", () => {
+    useStore.getState().applySnapshot({
+      holdings: duplicateSpcxHoldings,
+      trades: [
+        {
+          id: "buy-1",
+          date: "2026-01-01",
+          symbol: "SPCX",
+          type: "stock",
+          action: "buy",
+          quantity: 3,
+          price: 126.51,
+          createdAt: "2026-01-01T00:00:00.000Z",
+        },
+        {
+          id: "buy-2",
+          date: "2026-02-01",
+          symbol: "SPCX",
+          type: "stock",
+          action: "buy",
+          quantity: 7,
+          price: 147.15,
+          createdAt: "2026-02-01T00:00:00.000Z",
+        },
+      ],
+      returns: [],
+    });
+
+    const holdings = useStore.getState().holdings;
+    const stock = holdings.filter((h) => h.type === "stock");
+    expect(stock).toHaveLength(1);
+    expect(stock[0]).toMatchObject({ id: "a", symbol: "SPCX", name: "First", quantity: 10, priceId: "SPCX" });
+    expect(stock[0].avgCost).toBeCloseTo((3 * 126.51 + 7 * 147.15) / 10, 8);
+    expect(holdings.find((h) => h.type === "crypto")).toMatchObject({ id: "c", quantity: 1 });
+    expect(useStore.getState().trades).toHaveLength(2);
+  });
+
+  it("importAll merges two SPCX rows into one", () => {
+    useStore.getState().importAll({
+      holdings: duplicateSpcxHoldings,
+      trades: [],
+      returns: [],
+    });
+
+    const stock = useStore.getState().holdings.filter((h) => h.type === "stock");
+    expect(stock).toHaveLength(1);
+    expect(stock[0].quantity).toBe(10);
+    expect(stock[0].avgCost).toBeCloseTo((3 * 126.51 + 7 * 147.15) / 10, 8);
+    expect(useStore.getState().holdings.filter((h) => h.type === "crypto")).toHaveLength(1);
+  });
+
+  it("applyLocalSnapshot merges a cloud portfolio that still has two SPCX rows", () => {
+    applyLocalSnapshot({
+      holdings: duplicateSpcxHoldings,
+      trades: [],
+      returns: [],
+      clearedHoldings: [],
+      removedHoldings: [],
+      priceHistory: {},
+    });
+
+    const stock = useStore.getState().holdings.filter((h) => h.type === "stock");
+    expect(stock).toHaveLength(1);
+    expect(stock[0]).toMatchObject({ id: "a", quantity: 10, symbol: "SPCX" });
+    expect(stock[0].avgCost).toBeCloseTo((3 * 126.51 + 7 * 147.15) / 10, 8);
+    expect(useStore.getState().holdings.filter((h) => h.type === "crypto")).toHaveLength(1);
+  });
+});
