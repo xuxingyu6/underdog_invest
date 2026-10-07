@@ -10,6 +10,7 @@ describe("computeCumulativePnl", () => {
     });
 
     expect(result.unrealized).toBeCloseTo(15966.42 - 16850.34, 8);
+    expect(result.unrealizedPct).toBeCloseTo(((15966.42 - 16850.34) / 16850.34) * 100, 8);
     expect(result.realized).toBe(0);
     expect(result.soldCost).toBe(0);
     expect(result.total).toBeCloseTo(-883.92, 8);
@@ -31,6 +32,8 @@ describe("computeCumulativePnl", () => {
     expect(result.realized).toBe(16);
     expect(result.total).toBe(28);
     expect(result.holdingCost).toBe(60);
+    // Floating percent uses current holding cost only, not sold or invested cost.
+    expect(result.unrealizedPct).toBeCloseTo((12 / 60) * 100, 8);
     // Sold cost is the cost removed by each sale: 4*10 + 2*10.
     expect(result.soldCost).toBeCloseTo(15 * 4 - 20 + 8 * 2 - -4, 8);
     expect(result.investedCost).toBeCloseTo(60 + 60, 8);
@@ -47,6 +50,7 @@ describe("computeCumulativePnl", () => {
     });
 
     expect(result.unrealized).toBe(200);
+    expect(result.unrealizedPct).toBeCloseTo((200 / 800) * 100, 8);
     expect(result.realized).toBe(50);
     expect(result.total).toBe(250);
     expect(result.soldCost).toBe(100);
@@ -66,6 +70,8 @@ describe("computeCumulativePnl", () => {
 
     expect(result.realized).toBe(0);
     expect(result.soldCost).toBe(0);
+    expect(result.unrealized).toBe(10);
+    expect(result.unrealizedPct).toBeCloseTo((10 / 40) * 100, 8);
     expect(result.total).toBe(10);
     expect(result.totalPct).toBeCloseTo((10 / 40) * 100, 8);
   });
@@ -79,5 +85,20 @@ describe("computeCumulativePnl", () => {
 
     expect(result.total).toBe(0);
     expect(result.totalPct).toBe(0);
+    expect(result.unrealizedPct).toBeNull();
+  });
+
+  it("omits the floating percent when current holding cost is zero", () => {
+    const result = computeCumulativePnl({
+      marketValue: 25,
+      holdingCost: 0,
+      trades: [{ action: "sell", price: 5, quantity: 2, realizedPnl: 4 }],
+    });
+
+    expect(result.unrealized).toBe(25);
+    expect(result.holdingCost).toBe(0);
+    expect(result.soldCost).toBe(6);
+    expect(result.unrealizedPct).toBeNull();
+    expect(result.totalPct).toBeCloseTo((29 / 6) * 100, 8);
   });
 });

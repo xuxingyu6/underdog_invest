@@ -331,7 +331,7 @@ function KpiCard({ label, value, sub, tone = "neutral", customValueClass }: KpiP
 }
 
 const CUMULATIVE_PNL_HINT =
-  "累计盈亏 = 浮动盈亏（当前市值 − 持仓成本）+ 已实现盈亏（卖出部分）；百分比 = 累计盈亏 ÷ 总投入成本";
+  "累计盈亏 = 浮动盈亏（当前市值 − 持仓成本）+ 已实现盈亏（卖出部分）；百分比 = 累计盈亏 ÷ 总投入成本；浮动盈亏百分比 = 浮动盈亏 ÷ 当前持仓成本（与「持仓成本」相同）";
 
 export function CumulativePnlCard({ pnl }: { pnl: CumulativePnl }) {
   const tone = pnl.total >= 0 ? "text-profit" : "text-loss";
@@ -353,7 +353,7 @@ export function CumulativePnlCard({ pnl }: { pnl: CumulativePnl }) {
                 <Info className="h-3.5 w-3.5" />
               </button>
             </TooltipTrigger>
-            <TooltipContent side="top" className="max-w-[16rem] text-xs leading-relaxed">
+            <TooltipContent side="top" className="max-w-[18rem] text-xs leading-relaxed">
               {CUMULATIVE_PNL_HINT}
             </TooltipContent>
           </Tooltip>
@@ -368,19 +368,21 @@ export function CumulativePnlCard({ pnl }: { pnl: CumulativePnl }) {
         </span>
       </div>
       <div className="mt-2.5 space-y-1 border-t border-border/70 pt-2 text-xs">
-        <PnlSplit label="浮动盈亏" value={pnl.unrealized} />
+        <PnlSplit label="浮动盈亏" value={pnl.unrealized} pct={pnl.unrealizedPct} />
         <PnlSplit label="已实现盈亏" value={pnl.realized} />
       </div>
     </div>
   );
 }
 
-function PnlSplit({ label, value }: { label: string; value: number }) {
+function PnlSplit({ label, value, pct }: { label: string; value: number; pct?: number | null }) {
+  const showPct = pct != null && Number.isFinite(pct);
   return (
     <div className="flex items-baseline justify-between gap-3">
-      <span className="text-muted-foreground">{label}</span>
-      <span className={cn("font-mono tabular-nums whitespace-nowrap", value >= 0 ? "text-profit" : "text-loss")}>
-        {formatSignedMoney(value)}
+      <span className="shrink-0 text-muted-foreground">{label}</span>
+      <span className={cn("whitespace-nowrap text-right font-mono tabular-nums", value >= 0 ? "text-profit" : "text-loss")}>
+        <span>{formatSignedMoney(value)}</span>
+        {showPct && <span className="text-[11px] leading-none"> ({formatPercent(pct)})</span>}
       </span>
     </div>
   );
