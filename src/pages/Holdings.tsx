@@ -19,10 +19,11 @@ import {
   formatMoney, formatNumber, formatPercent, formatStockPrice, formatCryptoPrice,
   formatSignedMoney, plClass, formatQuantity, formatAvgCost,
 } from "@/lib/format";
-import { Plus, RefreshCw, Pencil, Trash2, AlertCircle, TrendingDown } from "lucide-react";
+import { Plus, RefreshCw, Pencil, Trash2, AlertCircle, TrendingDown, Info } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
-import { computeCumulativePnl } from "@/lib/portfolio-pnl";
+import { computeCumulativePnl, type CumulativePnl } from "@/lib/portfolio-pnl";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { ASSET_TYPE_LABELS } from "@/lib/types";
 
 function priceCellLabel(h: ReturnType<typeof usePricedHoldings>["priced"][number]) {
@@ -102,13 +103,7 @@ export default function Holdings() {
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
             <KpiCard label="总资产市值" value={formatMoney(totals.market)} />
             <KpiCard label="持仓成本" value={formatMoney(totals.cost)} />
-            <KpiCard
-              label="累计盈亏"
-              value={formatSignedMoney(totals.cumulative.total)}
-              detail={`浮动 ${formatSignedMoney(totals.cumulative.unrealized)} · 已实现 ${formatSignedMoney(totals.cumulative.realized)}`}
-              sub={formatPercent(totals.cumulative.totalPct)}
-              tone={totals.cumulative.total >= 0 ? "profit" : "loss"}
-            />
+            <CumulativePnlCard pnl={totals.cumulative} />
             <KpiCard
               label="现金比例"
               value={formatPercent(totals.cashRatio)}
@@ -318,21 +313,75 @@ export default function Holdings() {
 interface KpiProps {
   label: string;
   value: string;
-  detail?: string;
   sub?: string;
   tone?: "profit" | "loss" | "neutral";
   customValueClass?: string;
 }
 
-function KpiCard({ label, value, detail, sub, tone = "neutral", customValueClass }: KpiProps) {
+function KpiCard({ label, value, sub, tone = "neutral", customValueClass }: KpiProps) {
   const toneCls =
     customValueClass ?? (tone === "profit" ? "text-profit" : tone === "loss" ? "text-loss" : "");
   return (
-    <div className="bg-card border border-border rounded-xl p-4 sm:p-5">
+    <div className="flex h-full flex-col bg-card border border-border rounded-xl p-4 sm:p-5">
       <div className="text-xs text-muted-foreground">{label}</div>
-      <div className={cn("text-xl sm:text-2xl font-mono font-semibold mt-1 break-all", toneCls)}>{value}</div>
-      {detail && <div className="text-xs text-muted-foreground mt-1 leading-snug">{detail}</div>}
+      <div className={cn("text-xl sm:text-2xl font-mono font-semibold tabular-nums mt-1 break-all", toneCls)}>{value}</div>
       {sub && <div className={cn("text-xs mt-1", toneCls)}>{sub}</div>}
+    </div>
+  );
+}
+
+const CUMULATIVE_PNL_HINT =
+  "累计盈亏 = 浮动盈亏（当前市值 − 持仓成本）+ 已实现盈亏（卖出部分）；百分比 = 累计盈亏 ÷ 总投入成本";
+
+export function CumulativePnlCard({ pnl }: { pnl: CumulativePnl }) {
+  const tone = pnl.total >= 0 ? "text-profit" : "text-loss";
+  const pill = pnl.total >= 0 ? "bg-profit-soft text-profit" : "bg-loss-soft text-loss";
+  return (
+    <div className="flex h-full min-w-0 flex-col bg-card border border-border rounded-xl p-4 sm:p-5">
+      <div className="flex items-center gap-1 text-xs text-muted-foreground">
+        <span>累计盈亏</span>
+        <span id="cumulative-pnl-hint" className="sr-only">{CUMULATIVE_PNL_HINT}</span>
+        <TooltipProvider delayDuration={200}>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <button
+                type="button"
+                className="inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-muted-foreground hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                aria-label="累计盈亏说明"
+                aria-describedby="cumulative-pnl-hint"
+              >
+                <Info className="h-3.5 w-3.5" />
+              </button>
+            </TooltipTrigger>
+            <TooltipContent side="top" className="max-w-[16rem] text-xs leading-relaxed">
+              {CUMULATIVE_PNL_HINT}
+            </TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
+      </div>
+      <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1">
+        <div className={cn("text-xl sm:text-2xl font-mono font-semibold tabular-nums break-all", tone)}>
+          {formatSignedMoney(pnl.total)}
+        </div>
+        <span className={cn("inline-flex items-center rounded-full px-1.5 py-0.5 text-[11px] font-mono font-medium tabular-nums leading-none", pill)}>
+          {formatPercent(pnl.totalPct)}
+        </span>
+      </div>
+      <div className="mt-2.5 space-y-1 border-t border-border/70 pt-2 text-xs">
+        <PnlSplit label="浮动盈亏" value={pnl.unrealized} />
+        <PnlSplit label="已实现盈亏" value={pnl.realized} />
+      </div>
+    </div>
+  );
+}
+
+function PnlSplit({ label, value }: { label: string; value: number }) {
+  return (
+    <div className="flex items-baseline justify-between gap-3">
+      <span className="text-muted-foreground">{label}</span>
+      <span className={cn("font-mono tabular-nums whitespace-nowrap", value >= 0 ? "text-profit" : "text-loss")}>
+        {formatSignedMoney(value)}
+      </span>
     </div>
   );
 }
