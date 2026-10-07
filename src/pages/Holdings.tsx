@@ -22,6 +22,7 @@ import {
 import { Plus, RefreshCw, Pencil, Trash2, AlertCircle, TrendingDown } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
+import { computeCumulativePnl } from "@/lib/portfolio-pnl";
 import { ASSET_TYPE_LABELS } from "@/lib/types";
 
 function priceCellLabel(h: ReturnType<typeof usePricedHoldings>["priced"][number]) {
@@ -51,6 +52,7 @@ function calcHoldingPeriod(firstDate: string, lastDate: string): string {
 export default function Holdings() {
   const { priced, loading, lastFetch, refresh } = usePricedHoldings();
   const deleteHolding = useStore((s) => s.deleteHolding);
+  const trades = useStore((s) => s.trades);
   const clearedHoldings = useStore((s) => s.clearedHoldings);
   const deleteClearedHolding = useStore((s) => s.deleteClearedHolding);
   const [activeTab, setActiveTab] = useState("current");
@@ -58,12 +60,11 @@ export default function Holdings() {
   const totals = useMemo(() => {
     const market = priced.reduce((s, h) => s + h.marketValue, 0);
     const cost = priced.reduce((s, h) => s + h.avgCost * h.quantity, 0);
-    const pnl = market - cost;
-    const pnlPct = cost > 0 ? (pnl / cost) * 100 : 0;
+    const cumulative = computeCumulativePnl({ marketValue: market, holdingCost: cost, trades });
     const cash = priced.filter((h) => h.type === "cash").reduce((s, h) => s + h.marketValue, 0);
     const cashRatio = market > 0 ? (cash / market) * 100 : 0;
-    return { market, cost, pnl, pnlPct, cashRatio };
-  }, [priced]);
+    return { market, cost, cashRatio, cumulative };
+  }, [priced, trades]);
 
   const cashTone =
     totals.cashRatio > 30 ? "text-muted-foreground"
@@ -103,9 +104,10 @@ export default function Holdings() {
             <KpiCard label="持仓成本" value={formatMoney(totals.cost)} />
             <KpiCard
               label="累计盈亏"
-              value={formatSignedMoney(totals.pnl)}
-              sub={formatPercent(totals.pnlPct)}
-              tone={totals.pnl >= 0 ? "profit" : "loss"}
+              value={formatSignedMoney(totals.cumulative.total)}
+              detail={`浮动 ${formatSignedMoney(totals.cumulative.unrealized)} · 已实现 ${formatSignedMoney(totals.cumulative.realized)}`}
+              sub={formatPercent(totals.cumulative.totalPct)}
+              tone={totals.cumulative.total >= 0 ? "profit" : "loss"}
             />
             <KpiCard
               label="现金比例"
@@ -316,18 +318,20 @@ export default function Holdings() {
 interface KpiProps {
   label: string;
   value: string;
+  detail?: string;
   sub?: string;
   tone?: "profit" | "loss" | "neutral";
   customValueClass?: string;
 }
 
-function KpiCard({ label, value, sub, tone = "neutral", customValueClass }: KpiProps) {
+function KpiCard({ label, value, detail, sub, tone = "neutral", customValueClass }: KpiProps) {
   const toneCls =
     customValueClass ?? (tone === "profit" ? "text-profit" : tone === "loss" ? "text-loss" : "");
   return (
     <div className="bg-card border border-border rounded-xl p-4 sm:p-5">
       <div className="text-xs text-muted-foreground">{label}</div>
       <div className={cn("text-xl sm:text-2xl font-mono font-semibold mt-1 break-all", toneCls)}>{value}</div>
+      {detail && <div className="text-xs text-muted-foreground mt-1 leading-snug">{detail}</div>}
       {sub && <div className={cn("text-xs mt-1", toneCls)}>{sub}</div>}
     </div>
   );
