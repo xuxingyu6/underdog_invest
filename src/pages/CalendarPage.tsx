@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState } from "react";
 import { AppLayout } from "@/components/AppLayout";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -11,7 +11,6 @@ import {
   Tooltip, TooltipContent, TooltipProvider, TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { useComputedReturns, type DailyPoint } from "@/hooks/use-computed-returns";
-import { usePricedHoldings } from "@/hooks/use-priced-holdings";
 import { AssetTypeBadge } from "@/components/AssetTypeBadge";
 
 const SCOPES: ScopeType[] = ["all", "stock", "crypto"];
@@ -65,25 +64,24 @@ export default function CalendarPage() {
       </div>
 
       {view === "month" ? (
-        <MonthHeatmap year={year} month={month} dailyMap={dailyMap} scope={scope} />
+        <MonthHeatmap year={year} month={month} dailyMap={dailyMap} />
       ) : (
         <YearHeatmap year={year} monthMap={monthMap} onSelectMonth={(m) => { setMonth(m); setView("month"); }} />
       )}
 
       <Legend className="mt-6" />
       <p className="text-xs text-muted-foreground mt-3">
-        收益数据由「持仓」和「交易记录」结合每日价格快照自动计算。每次刷新价格会记录当日快照，无快照的日期显示为灰色。
+        收益数据由「持仓」和「交易记录」结合每日价格快照自动计算。当日明细与日历格子使用同一天的持仓数量和价格快照（相对成本的浮动盈亏）。没有历史价格的标的显示为暂无，不计入当日合计。无快照的日期显示为灰色。
       </p>
     </AppLayout>
   );
 }
 
 function MonthHeatmap({
-  year, month, dailyMap, scope,
+  year, month, dailyMap,
 }: {
   year: number; month: number;
   dailyMap: Record<string, DailyPoint>;
-  scope: ScopeType;
 }) {
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
 
@@ -166,7 +164,6 @@ function MonthHeatmap({
       <DayDetailDialog
         date={selectedDate}
         entry={selectedDate ? dailyMap[selectedDate] : undefined}
-        scope={scope}
         onClose={() => setSelectedDate(null)}
       />
     </TooltipProvider>
@@ -174,38 +171,14 @@ function MonthHeatmap({
 }
 
 function DayDetailDialog({
-  date, entry, scope, onClose,
+  date, entry, onClose,
 }: {
   date: string | null;
   entry?: DailyPoint;
-  scope: ScopeType;
   onClose: () => void;
 }) {
-  const { priced } = usePricedHoldings();
-
-  const breakdown = useMemo(() => {
-    if (!entry || !priced.length) return [];
-    return priced
-      .filter((h): h is NonNullable<typeof h> => !!h && h.type !== "cash" && h.marketValue > 0)
-      .filter((h) => {
-        if (scope === "all") return true;
-        return h.type === scope;
-      })
-      .map((h) => ({
-        symbol: h.symbol,
-        name: h.name ?? "",
-        type: h.type,
-        quantity: h.quantity,
-        avgCost: h.avgCost,
-        currentPrice: h.currentPrice,
-        pnl: (h.currentPrice - h.avgCost) * h.quantity,
-        pnlPct: h.avgCost > 0 ? ((h.currentPrice - h.avgCost) / h.avgCost) * 100 : 0,
-        marketValue: h.marketValue,
-      }))
-      .sort((a, b) => b.pnl - a.pnl);
-  }, [entry, priced, scope]);
-
   if (!date || !entry) return null;
+  const breakdown = entry.positions;
 
   return (
     <Dialog open={!!date} onOpenChange={(open) => !open && onClose()}>
@@ -243,7 +216,7 @@ function DayDetailDialog({
             <h4 className="text-sm font-medium mb-2">各标的盈亏</h4>
             <div className="space-y-2">
               {breakdown.map((item) => (
-                <div key={item.symbol} className="flex items-center justify-between py-2 border-b border-border last:border-0">
+                <div key={`${item.type}:${item.symbol}`} className="flex items-center justify-between py-2 border-b border-border last:border-0">
                   <div className="flex items-center gap-2">
                     <AssetTypeBadge type={item.type} />
                     <div>
@@ -252,12 +225,18 @@ function DayDetailDialog({
                     </div>
                   </div>
                   <div className="text-right">
-                    <div className={cn("text-sm font-mono font-medium", plClass(item.pnl))}>
-                      {formatSignedMoney(item.pnl, 2)}
-                    </div>
-                    <div className={cn("text-xs font-mono", plClass(item.pnlPct))}>
-                      {formatPercent(item.pnlPct, 2)}
-                    </div>
+                    {item.available && item.pnl != null && item.pnlPct != null ? (
+                      <>
+                        <div className={cn("text-sm font-mono font-medium", plClass(item.pnl))}>
+                          {formatSignedMoney(item.pnl, 2)}
+                        </div>
+                        <div className={cn("text-xs font-mono", plClass(item.pnlPct))}>
+                          {formatPercent(item.pnlPct, 2)}
+                        </div>
+                      </>
+                    ) : (
+                      <div className="text-xs text-muted-foreground">暂无历史价格</div>
+                    )}
                   </div>
                 </div>
               ))}
