@@ -2,12 +2,30 @@ import type { History } from "@/lib/priceHistory";
 import { resolveCryptoId } from "@/lib/prices";
 import type { AssetType, Holding, ScopeType, Trade } from "@/lib/types";
 
+/** One holding's contribution to a calendar day, using that day's price snapshot. */
+export interface DayPositionPnl {
+  symbol: string;
+  name?: string;
+  type: AssetType;
+  quantity: number;
+  avgCost: number;
+  /** Close carried from price history. Null when this symbol has no snapshot on or before the date. */
+  price: number | null;
+  pnl: number | null;
+  pnlPct: number | null;
+  marketValue: number | null;
+  /** False means the row is held that day but must not use today's quote or cost as a stand-in price. */
+  available: boolean;
+}
+
 export interface DailyPoint {
   date: string;
   pnl: number;
   rate: number;
   marketValue: number;
   costBasis: number;
+  /** Per-symbol rows. Available P&L and market value sum to this day's totals. */
+  positions: DayPositionPnl[];
 }
 
 export interface MonthlyPoint {
@@ -163,17 +181,18 @@ function positionsAt(
   return Object.values(positions).filter((p) => p.qty > 0.0000001);
 }
 
-function resolvePositionPrice(
-  position: Position,
-  carriedPrices: Record<string, number>,
-  holding?: Holding,
-): number {
+function historicalPrice(position: Position, carriedPrices: Record<string, number>): number | null {
   const snapshotPrice = carriedPrices[priceKey(position)];
   if (Number.isFinite(snapshotPrice) && snapshotPrice > 0) return snapshotPrice;
-  if (holding?.manualPrice && Number.isFinite(holding.manualPrice) && holding.manualPrice > 0) {
-    return holding.manualPrice;
+  return null;
+}
+
+function compareDayPositions(a: DayPositionPnl, b: DayPositionPnl): number {
+  if (a.available !== b.available) return a.available ? -1 : 1;
+  if (a.available && b.available && a.pnl != null && b.pnl != null && a.pnl !== b.pnl) {
+    return b.pnl - a.pnl;
   }
-  return position.avgCost > 0 ? position.avgCost : 0;
+  return a.symbol.localeCompare(b.symbol) || a.type.localeCompare(b.type);
 }
 
 function selectDateBounds(history: History, trades: Trade[], holdings: Holding[], today: string) {
@@ -286,18 +305,49 @@ export function buildComputedReturns({
     let pnl = 0;
     let costBasis = 0;
     let marketValue = 0;
+    const dayPositions: DayPositionPnl[] = [];
 
     positions.forEach((position) => {
       const holding = holdingMap[position.key];
-      const price = resolvePositionPrice(position, carriedPrices, holding);
-      if (price <= 0 || position.avgCost <= 0) return;
+      const price = historicalPrice(position, carriedPrices);
+      const priced = price != null && position.avgCost > 0;
+      if (!priced || price == null) {
+        dayPositions.push({
+          symbol: position.symbol,
+          name: holding?.name,
+          type: position.type,
+          quantity: position.qty,
+          avgCost: position.avgCost,
+          price: null,
+          pnl: null,
+          pnlPct: null,
+          marketValue: null,
+          available: false,
+        });
+        return;
+      }
 
       const value = price * position.qty;
       const cost = position.avgCost * position.qty;
+      const positionPnl = value - cost;
       marketValue += value;
       costBasis += cost;
-      pnl += value - cost;
+      pnl += positionPnl;
+      dayPositions.push({
+        symbol: position.symbol,
+        name: holding?.name,
+        type: position.type,
+        quantity: position.qty,
+        avgCost: position.avgCost,
+        price,
+        pnl: positionPnl,
+        pnlPct: cost > 0 ? (positionPnl / cost) * 100 : 0,
+        marketValue: value,
+        available: true,
+      });
     });
+
+    dayPositions.sort(compareDayPositions);
 
     if (marketValue > 0 && costBasis > 0) {
       dailyMap[date] = {
@@ -306,6 +356,7 @@ export function buildComputedReturns({
         rate: (pnl / costBasis) * 100,
         marketValue,
         costBasis,
+        positions: dayPositions,
       };
     }
   });
