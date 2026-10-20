@@ -1,7 +1,6 @@
 import { useMemo, useState } from "react";
 import { AppLayout } from "@/components/AppLayout";
 import { AllocationPie } from "@/components/AllocationPie";
-import { SectorAllocation } from "@/components/SectorAllocation";
 import { AssetTypeBadge } from "@/components/AssetTypeBadge";
 import { HoldingFormDialog } from "@/components/HoldingFormDialog";
 import { Button } from "@/components/ui/button";
@@ -116,10 +115,8 @@ export default function Holdings() {
             />
           </div>
 
-          {/* Allocation pie + stock sector bar */}
-          <div className="mb-6 space-y-4">
+          <div className="mb-6">
             <AllocationPie priced={priced} />
-            <SectorAllocation priced={priced} />
           </div>
 
           {/* 资产内部仓位分析：美股 / 加密货币 */}

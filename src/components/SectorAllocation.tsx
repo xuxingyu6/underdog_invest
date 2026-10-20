@@ -19,7 +19,7 @@ export function SectorAllocation({ priced }: Props) {
   const hasStocks = priced.some((row) => row?.type === "stock");
 
   return (
-    <div className="bg-card border border-border rounded-xl p-4 sm:p-6 min-w-0">
+    <div className="min-w-0">
       <div className="flex items-start justify-between gap-3">
         <h3 className="font-semibold shrink-0">板块配置</h3>
         {slices.length > 0 && (
@@ -30,9 +30,9 @@ export function SectorAllocation({ priced }: Props) {
       </div>
 
       {slices.length === 0 ? (
-        <div className="py-10 text-center text-sm text-muted-foreground">
+        <p className="mt-3 text-sm text-muted-foreground">
           {hasStocks ? "股票市值为 0，暂时无法计算板块比重" : "暂无股票持仓"}
-        </div>
+        </p>
       ) : (
         <>
           <div

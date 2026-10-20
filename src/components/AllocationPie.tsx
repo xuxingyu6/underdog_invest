@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from "recharts";
 import type { PricedHolding } from "@/hooks/use-priced-holdings";
+import { SectorAllocation } from "@/components/SectorAllocation";
 import { ASSET_TYPE_COLOR, ASSET_TYPE_LABELS, type AssetType } from "@/lib/types";
 import { formatMoney, formatPercent } from "@/lib/format";
 import { cn } from "@/lib/utils";
@@ -206,8 +207,7 @@ export function AllocationPie({ priced }: Props) {
       </div>
 
       <div className="mt-6 pt-6 border-t border-border">
-        <div className="text-xs text-muted-foreground">总资产市值</div>
-        <div className="text-2xl font-mono font-semibold mt-1">{formatMoney(total)}</div>
+        <SectorAllocation priced={safePriced} />
       </div>
 
       {detail && detail.length > 0 && (

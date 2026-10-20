@@ -54,6 +54,16 @@
     --neutral: 0 0% 45%;
     --warning: 38 92% 50%;
 
+    /* Sector bar fills. Chart hues, darkened so white in-bar labels stay readable. */
+    --sector-1: 222 58% 36%;
+    --sector-2: 27 72% 36%;
+    --sector-3: 184 42% 28%;
+    --sector-4: 36 68% 36%;
+    --sector-5: 158 42% 28%;
+    --sector-6: 262 46% 42%;
+    --sector-7: 345 50% 40%;
+    --sector-8: 200 52% 32%;
+
     /* Chart palette (matches the reference --chart-1..5) */
     --chart-1: 27 87% 56%;            /* oklch(0.646 0.222 41.116) — orange */
     --chart-2: 184 51% 47%;           /* oklch(0.6 0.118 184.704) — teal */

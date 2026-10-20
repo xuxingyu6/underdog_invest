@@ -6,16 +6,16 @@
 
 export const UNCATEGORIZED_SECTOR = "未分类";
 
-/** Chart / asset tokens, in legend order. Distinct across light and dark. */
+/** Chart hues at a lightness that keeps white labels readable in light and dark. */
 export const SECTOR_PALETTE = [
-  "hsl(var(--chart-3))",
-  "hsl(var(--chart-1))",
-  "hsl(var(--chart-2))",
-  "hsl(var(--chart-5))",
-  "hsl(var(--chart-4))",
-  "hsl(var(--asset-gold))",
-  "hsl(var(--asset-cash))",
-  "hsl(var(--asset-bond))",
+  "hsl(var(--sector-1))",
+  "hsl(var(--sector-2))",
+  "hsl(var(--sector-3))",
+  "hsl(var(--sector-4))",
+  "hsl(var(--sector-5))",
+  "hsl(var(--sector-6))",
+  "hsl(var(--sector-7))",
+  "hsl(var(--sector-8))",
 ] as const;
 
 export function sectorColor(index: number): string {
