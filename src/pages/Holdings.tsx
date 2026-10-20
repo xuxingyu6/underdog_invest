@@ -24,6 +24,7 @@ import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { computeCumulativePnl, type CumulativePnl } from "@/lib/portfolio-pnl";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { normalizeSector } from "@/lib/sector-allocation";
 import { ASSET_TYPE_LABELS } from "@/lib/types";
 
 function priceCellLabel(h: ReturnType<typeof usePricedHoldings>["priced"][number]) {
@@ -114,7 +115,6 @@ export default function Holdings() {
             />
           </div>
 
-          {/* Allocation pie */}
           <div className="mb-6">
             <AllocationPie priced={priced} />
           </div>
@@ -162,6 +162,9 @@ export default function Holdings() {
                       <td className="px-6 py-4">
                         <div className="font-medium">{h.symbol}</div>
                         {h.name && <div className="text-xs text-muted-foreground">{h.name}</div>}
+                        {h.type === "stock" && normalizeSector(h.sector) && (
+                          <div className="text-xs text-muted-foreground">{normalizeSector(h.sector)}</div>
+                        )}
                       </td>
                       <td className="px-4 py-4"><AssetTypeBadge type={h.type} /></td>
                       <td className="px-4 py-4 text-right font-mono">{h.type === "cash" ? "—" : formatQuantity(h.quantity)}</td>

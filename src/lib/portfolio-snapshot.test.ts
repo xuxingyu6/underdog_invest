@@ -98,6 +98,20 @@ describe("mergeSnapshots", () => {
       "stock:MSFT": 400,
     });
   });
+
+  it("keeps a holding sector when local wins the same symbol", () => {
+    const local = snap({
+      holdings: [holding({ id: "local-aapl", symbol: "AAPL", quantity: 8, sector: "太空" })],
+    });
+    const cloud = snap({
+      holdings: [holding({ id: "cloud-aapl", symbol: "AAPL", quantity: 2, sector: "AI基建" })],
+    });
+    const merged = mergeSnapshots(local, cloud);
+    expect(merged.holdings.find((row) => row.symbol === "AAPL")).toMatchObject({
+      quantity: 8,
+      sector: "太空",
+    });
+  });
 });
 
 describe("decideReconcile", () => {
@@ -239,6 +253,19 @@ describe("portfolio backup serialize/parse", () => {
     expect(restored.clearedHoldings[0]).toMatchObject({ id: "c1", symbol: "AAPL", fullySold: true });
     expect(restored.removedHoldings[0]?.symbol).toBe("AAPL");
     expect(restored.theme).toBe("dark");
+  });
+
+  it("round-trips a holding sector through backup JSON", () => {
+    const backup = createPortfolioBackup(
+      snap({
+        holdings: [holding({ id: "h1", symbol: "RKLB", sector: "太空" })],
+      }),
+      { exportedAt: "2026-10-20T00:00:00.000Z" },
+    );
+
+    const restored = parsePortfolioBackup(JSON.parse(JSON.stringify(backup)));
+    expect(restored.holdings).toHaveLength(1);
+    expect(restored.holdings[0]).toMatchObject({ id: "h1", symbol: "RKLB", sector: "太空" });
   });
 
   it("accepts older holdings-only backups and fills missing collections", () => {

@@ -84,4 +84,33 @@ describe("applyCloudSnapshot", () => {
     expect(pushed).toHaveLength(0);
     expect(useStore.getState().holdings).toHaveLength(2);
   });
+
+  it("hydrates a holding sector from a cloud snapshot and keeps it after duplicate collapse", async () => {
+    const snapshot = cloudWithDuplicateSpcx();
+    snapshot.holdings = snapshot.holdings.map((holding) =>
+      holding.id === "b" ? { ...holding, sector: "太空" } : holding,
+    );
+    snapshot.holdings.push({
+      id: "rklb",
+      symbol: "RKLB",
+      type: "stock",
+      quantity: 4,
+      avgCost: 20,
+      sector: "  AI基建  ",
+      createdAt: "2026-01-01T00:00:00.000Z",
+    });
+
+    const pushed: PortfolioSnapshot[] = [];
+    const wrote = await applyCloudSnapshot(snapshot, async (next) => {
+      pushed.push(next);
+    });
+
+    const spcx = useStore.getState().holdings.find((h) => h.symbol === "SPCX");
+    const rklb = useStore.getState().holdings.find((h) => h.symbol === "RKLB");
+    expect(wrote).toBe(true);
+    expect(spcx?.sector).toBe("太空");
+    expect(rklb?.sector).toBe("AI基建");
+    expect(pushed[0].holdings.find((h) => h.symbol === "SPCX")?.sector).toBe("太空");
+    expect(pushed[0].holdings.find((h) => h.symbol === "RKLB")?.sector).toBe("AI基建");
+  });
 });
