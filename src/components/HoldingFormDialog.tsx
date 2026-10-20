@@ -31,6 +31,7 @@ export function HoldingFormDialog({ trigger, initial }: Props) {
   const [manualPrice, setManualPrice] = useState(String(initial?.manualPrice ?? ""));
   const [priceId, setPriceId] = useState(initial?.priceId ?? "");
   const [note, setNote] = useState(initial?.note ?? "");
+  const [sector, setSector] = useState(initial?.sector ?? "");
   // Cash uses a single "amount" field for quantity, avgCost=1
   const [cashAmount, setCashAmount] = useState(String(initial?.quantity ?? ""));
 
@@ -39,7 +40,7 @@ export function HoldingFormDialog({ trigger, initial }: Props) {
 
   const reset = () => {
     setType("stock"); setSymbol(""); setName("");
-    setQuantity(""); setAvgCost(""); setManualPrice(""); setPriceId(""); setNote(""); setCashAmount("");
+    setQuantity(""); setAvgCost(""); setManualPrice(""); setPriceId(""); setNote(""); setSector(""); setCashAmount("");
   };
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -74,6 +75,7 @@ export function HoldingFormDialog({ trigger, initial }: Props) {
         manualPrice: isFinite(mp) ? mp : undefined,
         priceId: type === "crypto" ? (priceId || resolveCryptoId(symbol)) : type === "stock" ? symbol.toUpperCase() : undefined,
         note,
+        ...(type === "stock" ? { sector: sector.trim() } : {}),
       };
       if (initial) updateHolding(initial.id, payload);
       else addHolding(payload);
@@ -84,7 +86,13 @@ export function HoldingFormDialog({ trigger, initial }: Props) {
   };
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
+    <Dialog
+      open={open}
+      onOpenChange={(next) => {
+        setOpen(next);
+        if (next) setSector(initial?.sector ?? "");
+      }}
+    >
       <DialogTrigger asChild>{trigger}</DialogTrigger>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
@@ -137,6 +145,18 @@ export function HoldingFormDialog({ trigger, initial }: Props) {
                   <Input type="number" step="any" value={avgCost} onChange={(e) => setAvgCost(e.target.value)} required />
                 </div>
               </div>
+              {type === "stock" && (
+                <div className="space-y-2">
+                  <Label>板块</Label>
+                  <Input
+                    value={sector}
+                    onChange={(e) => setSector(e.target.value)}
+                    placeholder="例如：太空、AI基建"
+                    autoComplete="off"
+                  />
+                  <p className="text-xs text-muted-foreground">选填，留空记为「未分类」</p>
+                </div>
+              )}
               {needsPrice && (
                 <div className="space-y-2">
                   <Label>当前价格 (USD)</Label>

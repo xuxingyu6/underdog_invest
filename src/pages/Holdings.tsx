@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 import { AppLayout } from "@/components/AppLayout";
 import { AllocationPie } from "@/components/AllocationPie";
+import { SectorAllocation } from "@/components/SectorAllocation";
 import { AssetTypeBadge } from "@/components/AssetTypeBadge";
 import { HoldingFormDialog } from "@/components/HoldingFormDialog";
 import { Button } from "@/components/ui/button";
@@ -24,6 +25,7 @@ import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { computeCumulativePnl, type CumulativePnl } from "@/lib/portfolio-pnl";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { normalizeSector } from "@/lib/sector-allocation";
 import { ASSET_TYPE_LABELS } from "@/lib/types";
 
 function priceCellLabel(h: ReturnType<typeof usePricedHoldings>["priced"][number]) {
@@ -114,9 +116,10 @@ export default function Holdings() {
             />
           </div>
 
-          {/* Allocation pie */}
-          <div className="mb-6">
+          {/* Allocation pie + stock sector bar */}
+          <div className="mb-6 space-y-4">
             <AllocationPie priced={priced} />
+            <SectorAllocation priced={priced} />
           </div>
 
           {/* 资产内部仓位分析：美股 / 加密货币 */}
@@ -162,6 +165,9 @@ export default function Holdings() {
                       <td className="px-6 py-4">
                         <div className="font-medium">{h.symbol}</div>
                         {h.name && <div className="text-xs text-muted-foreground">{h.name}</div>}
+                        {h.type === "stock" && normalizeSector(h.sector) && (
+                          <div className="text-xs text-muted-foreground">{normalizeSector(h.sector)}</div>
+                        )}
                       </td>
                       <td className="px-4 py-4"><AssetTypeBadge type={h.type} /></td>
                       <td className="px-4 py-4 text-right font-mono">{h.type === "cash" ? "—" : formatQuantity(h.quantity)}</td>

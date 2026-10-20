@@ -605,3 +605,109 @@ describe("portfolio load collapses duplicate holdings", () => {
     expect(useStore.getState().holdings.filter((h) => h.type === "crypto")).toHaveLength(1);
   });
 });
+
+describe("holding sector", () => {
+  beforeEach(resetStore);
+
+  it("stores a trimmed sector and can clear it", () => {
+    useStore.getState().addHolding({
+      symbol: "RKLB",
+      type: "stock",
+      quantity: 2,
+      avgCost: 10,
+      sector: "  太空  ",
+    });
+    const id = useStore.getState().holdings[0].id;
+    expect(useStore.getState().holdings[0].sector).toBe("太空");
+
+    useStore.getState().updateHolding(id, { sector: " AI基建 " });
+    expect(useStore.getState().holdings[0].sector).toBe("AI基建");
+
+    useStore.getState().updateHolding(id, { sector: "   " });
+    expect(useStore.getState().holdings[0].sector).toBeUndefined();
+  });
+
+  it("keeps the existing sector when a second lot is merged, and fills it when the first row is blank", () => {
+    useStore.getState().addHolding({
+      symbol: "RKLB",
+      type: "stock",
+      quantity: 2,
+      avgCost: 10,
+      sector: "太空",
+    });
+    useStore.getState().addHolding({
+      symbol: "RKLB",
+      type: "stock",
+      quantity: 3,
+      avgCost: 20,
+      sector: "AI基建",
+    });
+    expect(useStore.getState().holdings).toHaveLength(1);
+    expect(useStore.getState().holdings[0]).toMatchObject({ quantity: 5, sector: "太空" });
+
+    useStore.getState().addHolding({
+      symbol: "VRT",
+      type: "stock",
+      quantity: 1,
+      avgCost: 30,
+    });
+    useStore.getState().addHolding({
+      symbol: "VRT",
+      type: "stock",
+      quantity: 1,
+      avgCost: 40,
+      sector: "  AI基建 ",
+    });
+    expect(useStore.getState().holdings.find((h) => h.symbol === "VRT")).toMatchObject({
+      quantity: 2,
+      sector: "AI基建",
+    });
+  });
+
+  it("survives duplicate collapse, export, and import", () => {
+    useStore.getState().applySnapshot({
+      holdings: [
+        {
+          id: "a",
+          symbol: "SPCX",
+          type: "stock",
+          quantity: 3,
+          avgCost: 100,
+          createdAt: "2026-01-01T00:00:00.000Z",
+        },
+        {
+          id: "b",
+          symbol: "spcx",
+          type: "stock",
+          quantity: 7,
+          avgCost: 200,
+          sector: "  太空 ",
+          createdAt: "2026-02-01T00:00:00.000Z",
+        },
+        {
+          id: "c",
+          symbol: "RKLB",
+          type: "stock",
+          quantity: 4,
+          avgCost: 20,
+          sector: "AI基建",
+          createdAt: "2026-01-01T00:00:00.000Z",
+        },
+      ],
+      trades: [],
+      returns: [],
+    });
+
+    const collapsed = useStore.getState().holdings;
+    expect(collapsed.find((h) => h.symbol === "SPCX")).toMatchObject({ id: "a", quantity: 10, sector: "太空" });
+    expect(collapsed.find((h) => h.symbol === "RKLB")?.sector).toBe("AI基建");
+
+    const json = JSON.stringify(createPortfolioBackup(readLocalSnapshot()));
+    resetStore();
+    applyLocalSnapshot(parsePortfolioBackup(JSON.parse(json)));
+
+    const restored = useStore.getState().holdings;
+    expect(restored.find((h) => h.symbol === "SPCX")).toMatchObject({ quantity: 10, sector: "太空" });
+    expect(restored.find((h) => h.symbol === "RKLB")?.sector).toBe("AI基建");
+  });
+});

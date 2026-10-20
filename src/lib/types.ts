@@ -16,6 +16,8 @@ export interface Holding {
   manualPrice?: number;       // optional override for non-stock/crypto
   // For crypto: coingecko id (e.g. "bitcoin"), for stocks: ticker
   priceId?: string;
+  /** User-defined sector label. Blank or missing is treated as 「未分类」. */
+  sector?: string;
   note?: string;
   createdAt: string;
 }

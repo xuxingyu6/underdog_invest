@@ -2,6 +2,7 @@ import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import type { Holding, Trade, ReturnEntry, AssetType, ClearedHolding } from "./types";
 import { uid } from "./format";
+import { normalizeSector } from "./sector-allocation";
 
 function todayKey() {
   const now = new Date();
@@ -21,16 +22,25 @@ function weightedAvgCost(currentQty: number, currentAvg: number, addQty: number,
   return (currentQty * currentAvg + addQty * addAvg) / totalQty;
 }
 
+function withCleanSector(holding: Holding): Holding {
+  const sector = normalizeSector(holding.sector);
+  if (sector) return holding.sector === sector ? holding : { ...holding, sector };
+  if (holding.sector == null) return holding;
+  const { sector: _removed, ...rest } = holding;
+  return rest;
+}
+
 /** One row per symbol+type. Later rows fill blank metadata only; id stays the first row's. */
 function collapseHoldingGroup(group: Holding[]): Holding {
   const [first, ...rest] = group;
-  if (rest.length === 0) return first;
+  if (rest.length === 0) return withCleanSector(first);
   let quantity = first.quantity;
   let avgCost = first.avgCost;
   let name = first.name;
   let note = first.note;
   let priceId = first.priceId;
   let manualPrice = first.manualPrice;
+  let sector = normalizeSector(first.sector);
   for (const row of rest) {
     avgCost = weightedAvgCost(quantity, avgCost, row.quantity, row.avgCost);
     quantity += row.quantity;
@@ -38,8 +48,12 @@ function collapseHoldingGroup(group: Holding[]): Holding {
     if (!note && row.note) note = row.note;
     if (!priceId && row.priceId) priceId = row.priceId;
     if (manualPrice == null && row.manualPrice != null) manualPrice = row.manualPrice;
+    if (!sector) sector = normalizeSector(row.sector);
   }
-  return { ...first, quantity, avgCost, name, note, priceId, manualPrice };
+  const merged: Holding = { ...first, quantity, avgCost, name, note, priceId, manualPrice };
+  if (sector) merged.sector = sector;
+  else delete merged.sector;
+  return merged;
 }
 
 function mergeDuplicateHoldings(holdings: Holding[]): Holding[] {
@@ -82,6 +96,7 @@ function withMergedHolding(
   if (!merged.name && incoming.name) merged.name = incoming.name;
   if (!merged.priceId && incoming.priceId) merged.priceId = incoming.priceId;
   if (merged.manualPrice == null && incoming.manualPrice != null) merged.manualPrice = incoming.manualPrice;
+  if (!merged.sector && incoming.sector) merged.sector = incoming.sector;
   let placed = false;
   const next: Holding[] = [];
   for (const row of holdings) {
@@ -406,8 +421,12 @@ export const useStore = create<State>()(
       addHolding: (h) =>
         set((s) => {
           const createdAt = new Date().toISOString();
+          const sector = normalizeSector(h.sector);
+          const incoming = { ...h };
+          if (sector) incoming.sector = sector;
+          else delete incoming.sector;
           // Same symbol+type is one position: add quantity and recompute weighted avg cost.
-          const holdings = withMergedHolding(s.holdings, h, createdAt);
+          const holdings = withMergedHolding(s.holdings, incoming, createdAt);
           const trades =
             h.type === "cash"
               ? s.trades
@@ -430,7 +449,16 @@ export const useStore = create<State>()(
         }),
       updateHolding: (id, patch) =>
         set((s) => {
-          const holdings = s.holdings.map((h) => (h.id === id ? { ...h, ...patch } : h));
+          const holdings = s.holdings.map((h) => {
+            if (h.id !== id) return h;
+            const next: Holding = { ...h, ...patch };
+            if ("sector" in patch) {
+              const sector = normalizeSector(patch.sector);
+              if (sector) next.sector = sector;
+              else delete next.sector;
+            }
+            return next;
+          });
           const clearedHoldings = recomputeClearedHoldings(s.trades, holdings, s.removedHoldings);
           return { holdings, clearedHoldings };
         }),
