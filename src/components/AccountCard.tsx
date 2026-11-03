@@ -35,6 +35,7 @@ export function AccountCard() {
     outboundEnabled,
     signOut,
     pushNow,
+    retrySync,
     resolveUpload,
     resolveConflict,
   } = useCloudSync();
@@ -90,9 +91,13 @@ export function AccountCard() {
           <p className="text-sm text-muted-foreground">上次同步：{formatSyncedAt(lastSyncedAt)}</p>
           {error && <p className="text-sm text-destructive">{error}</p>}
           <div className="flex flex-wrap gap-2">
-            <Button variant="outline" onClick={() => void pushNow()} disabled={syncing || loading}>
+            <Button
+              variant="outline"
+              onClick={() => void (error ? retrySync() : pushNow())}
+              disabled={syncing || loading}
+            >
               {syncing ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <RefreshCw className="w-4 h-4 mr-2" />}
-              立即同步
+              {error ? "重试同步" : "立即同步"}
             </Button>
             {pending && (
               <Button variant="outline" onClick={() => setDialogOpen(true)}>

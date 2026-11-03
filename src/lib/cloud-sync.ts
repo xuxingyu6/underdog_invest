@@ -132,13 +132,42 @@ export async function upsertPortfolio(
   };
 }
 
+export const CLOUD_SYNC_TIMEOUT_MS = 20_000;
+
+/** Reject when `promise` does not settle within `ms`, so the UI can leave its loading state. */
+export function withTimeout<T>(promise: Promise<T>, ms: number, message: string): Promise<T> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const timeout = new Promise<never>((_, reject) => {
+    timer = setTimeout(() => reject(new Error(message)), ms);
+  });
+  return Promise.race([promise, timeout]).finally(() => {
+    if (timer !== undefined) clearTimeout(timer);
+  });
+}
+
+/**
+ * Resolves once persist has finished, or on the next microtask if hydration
+ * already failed. localStorage rehydration runs synchronously inside `create()`.
+ * If it throws, zustand never sets `hasHydrated` and never emits
+ * `onFinishHydration`, so waiting only on that listener hangs reconcile forever.
+ */
 export function waitForStoreHydration(): Promise<void> {
   const persist = useStore.persist;
   if (persist.hasHydrated()) return Promise.resolve();
   return new Promise((resolve) => {
-    const unsub = persist.onFinishHydration(() => {
-      unsub();
+    let settled = false;
+    const finish = () => {
+      if (settled) return;
+      settled = true;
+      unsubscribe();
       resolve();
+    };
+    const unsubscribe = persist.onFinishHydration(() => {
+      finish();
+    });
+    if (persist.hasHydrated()) finish();
+    queueMicrotask(() => {
+      if (!persist.hasHydrated()) finish();
     });
   });
 }

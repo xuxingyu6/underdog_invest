@@ -17,11 +17,14 @@ import {
   loadSyncMeta,
   readLocalSnapshot,
   saveSyncMeta,
+  CLOUD_SYNC_TIMEOUT_MS,
   upsertPortfolio,
   waitForStoreHydration,
+  withTimeout,
 } from "@/lib/cloud-sync";
 import {
   decideReconcile,
+  hasPortfolioData,
   mergeSnapshots,
   snapshotCounts,
   type PortfolioSnapshot,
@@ -47,6 +50,7 @@ interface CloudSyncContextValue {
   signUp: (email: string, password: string) => Promise<void>;
   signOut: () => Promise<void>;
   pushNow: () => Promise<void>;
+  retrySync: () => Promise<void>;
   resolveUpload: (upload: boolean) => Promise<void>;
   resolveConflict: (choice: "cloud" | "local" | "merge") => Promise<void>;
 }
@@ -54,6 +58,15 @@ interface CloudSyncContextValue {
 const CloudSyncContext = createContext<CloudSyncContextValue | null>(null);
 
 const PUSH_DEBOUNCE_MS = 800;
+
+function errorText(err: unknown, fallback: string): string {
+  if (err instanceof Error && err.message) return err.message;
+  if (err && typeof err === "object" && "message" in err) {
+    const message = (err as { message?: unknown }).message;
+    if (typeof message === "string" && message) return message;
+  }
+  return fallback;
+}
 
 function mapAuthError(message: string): string {
   const lower = message.toLowerCase();
@@ -78,6 +91,7 @@ export function CloudSyncProvider({ children }: { children: ReactNode }) {
   const applyingRemote = useRef(false);
   const pushTimer = useRef<number | null>(null);
   const userIdRef = useRef<string | null>(null);
+  const reconcileId = useRef(0);
   userIdRef.current = user?.id ?? null;
 
   const markMeta = useCallback((patch: Partial<ReturnType<typeof loadSyncMeta>>) => {
@@ -94,10 +108,14 @@ export function CloudSyncProvider({ children }: { children: ReactNode }) {
     setSyncing(true);
     setError(null);
     try {
-      const { updatedAt } = await upsertPortfolio(client, userId, snapshot);
+      const { updatedAt } = await withTimeout(
+        upsertPortfolio(client, userId, snapshot),
+        CLOUD_SYNC_TIMEOUT_MS,
+        "同步超时，请重试",
+      );
       markMeta({ userId, lastSyncedAt: updatedAt, dirty: false });
     } catch (err) {
-      const message = err instanceof Error ? err.message : "同步失败";
+      const message = errorText(err, "同步失败");
       setError(message);
       markMeta({ dirty: true });
       throw err;
@@ -117,14 +135,21 @@ export function CloudSyncProvider({ children }: { children: ReactNode }) {
   const reconcile = useCallback(async (userId: string) => {
     const client = getSupabase();
     if (!client) return;
+    const id = ++reconcileId.current;
+    const stale = () => id !== reconcileId.current || userIdRef.current !== userId;
     setLoading(true);
     setError(null);
     setPending(null);
     setOutboundEnabled(false);
     try {
       await waitForStoreHydration();
-      const cloud = await fetchPortfolio(client, userId);
-      if (userIdRef.current !== userId) return;
+      if (stale()) return;
+      const cloud = await withTimeout(
+        fetchPortfolio(client, userId),
+        CLOUD_SYNC_TIMEOUT_MS,
+        "读取云端数据超时，请重试",
+      );
+      if (stale()) return;
       const local = readLocalSnapshot();
       const decision = decideReconcile({
         local,
@@ -144,7 +169,8 @@ export function CloudSyncProvider({ children }: { children: ReactNode }) {
         }
         setOutboundEnabled(true);
       } else if (decision.type === "push-local") {
-        await pushSnapshot(local);
+        // A fresh empty browser must not overwrite the account's cloud portfolio.
+        if (hasPortfolioData(local)) await pushSnapshot(local);
         setOutboundEnabled(true);
       } else if (decision.type === "prompt-upload") {
         setPending({ kind: "upload", local: snapshotCounts(local) });
@@ -160,10 +186,10 @@ export function CloudSyncProvider({ children }: { children: ReactNode }) {
         setOutboundEnabled(true);
       }
     } catch (err) {
-      const message = err instanceof Error ? err.message : "读取云端数据失败";
-      setError(message);
+      if (stale()) return;
+      setError(errorText(err, "读取云端数据失败"));
     } finally {
-      setLoading(false);
+      if (!stale()) setLoading(false);
     }
   }, [markMeta, pushSnapshot]);
 
@@ -271,8 +297,21 @@ export function CloudSyncProvider({ children }: { children: ReactNode }) {
     setError(null);
   }, []);
 
+  const retrySync = useCallback(async () => {
+    const userId = userIdRef.current;
+    if (!userId) return;
+    await reconcile(userId);
+  }, [reconcile]);
+
   const pushNow = useCallback(async () => {
-    if (!userIdRef.current) return;
+    const userId = userIdRef.current;
+    if (!userId) return;
+    // A failed or unfinished reconcile must not upload a fresh empty browser
+    // over the cloud portfolio. Retry the pull instead.
+    if (error || (!outboundEnabled && !pending)) {
+      await reconcile(userId);
+      return;
+    }
     try {
       await pushSnapshot(readLocalSnapshot());
       setOutboundEnabled(true);
@@ -281,7 +320,7 @@ export function CloudSyncProvider({ children }: { children: ReactNode }) {
     } catch {
       toast.error("同步失败");
     }
-  }, [pushSnapshot]);
+  }, [error, outboundEnabled, pending, pushSnapshot, reconcile]);
 
   const resolveUpload = useCallback(async (upload: boolean) => {
     if (!userIdRef.current) return;
@@ -345,11 +384,12 @@ export function CloudSyncProvider({ children }: { children: ReactNode }) {
     signUp,
     signOut,
     pushNow,
+    retrySync,
     resolveUpload,
     resolveConflict,
   }), [
     configured, user, loading, syncing, lastSyncedAt, error, pending, outboundEnabled,
-    signIn, signUp, signOut, pushNow, resolveUpload, resolveConflict,
+    signIn, signUp, signOut, pushNow, retrySync, resolveUpload, resolveConflict,
   ]);
 
   return <CloudSyncContext.Provider value={value}>{children}</CloudSyncContext.Provider>;

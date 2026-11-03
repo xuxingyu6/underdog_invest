@@ -347,6 +347,40 @@ function recomputeClearedHoldings(trades: Trade[], currentHoldings: Holding[], r
   return cleared;
 }
 
+/**
+ * Persisted rows are normalized inside `merge`, which runs while `create()` is
+ * still evaluating `useStore`. Do not read `useStore` from `onRehydrateStorage`:
+ * localStorage hydration is synchronous, so that callback runs before the
+ * `useStore` binding exists. The resulting ReferenceError is swallowed by
+ * zustand, `hasHydrated()` stays false, and `onFinishHydration` never fires.
+ * Cloud reconcile then waits forever and the settings page stays on「正在连接…」.
+ */
+function rehydratedPortfolioState(persistedState: unknown, currentState: State): State {
+  const persisted = (persistedState ?? {}) as Partial<State>;
+  const holdings = mergeDuplicateHoldings(
+    (Array.isArray(persisted.holdings) ? persisted.holdings : currentState.holdings).filter(
+      (holding) => Boolean(holding && typeof holding === "object" && holding.id && holding.symbol),
+    ),
+  );
+  const trades = (Array.isArray(persisted.trades) ? persisted.trades : currentState.trades).filter(
+    (trade) => Boolean(trade && typeof trade === "object" && trade.id && trade.symbol),
+  );
+  const returns = (Array.isArray(persisted.returns) ? persisted.returns : currentState.returns).filter(
+    (entry) => Boolean(entry && typeof entry === "object" && entry.id),
+  );
+  const removedHoldings = Array.isArray(persisted.removedHoldings)
+    ? persisted.removedHoldings
+    : currentState.removedHoldings;
+  return {
+    ...currentState,
+    holdings,
+    trades,
+    returns,
+    removedHoldings,
+    clearedHoldings: recomputeClearedHoldings(trades, holdings, removedHoldings).map(normalizeSoldHolding),
+  };
+}
+
 function stateFromSnapshot(data: {
   holdings?: Holding[];
   trades?: Trade[];
@@ -549,45 +583,10 @@ export const useStore = create<State>()(
         clearedHoldings: state.clearedHoldings,
         removedHoldings: state.removedHoldings,
       }),
-      merge: (persistedState, currentState) => {
-        const persisted = (persistedState ?? {}) as Partial<State>;
-        return {
-          ...currentState,
-          holdings: Array.isArray(persisted.holdings) ? persisted.holdings : currentState.holdings,
-          trades: Array.isArray(persisted.trades) ? persisted.trades : currentState.trades,
-          returns: Array.isArray(persisted.returns) ? persisted.returns : currentState.returns,
-          clearedHoldings: Array.isArray(persisted.clearedHoldings)
-            ? persisted.clearedHoldings
-            : currentState.clearedHoldings,
-          removedHoldings: Array.isArray(persisted.removedHoldings)
-            ? persisted.removedHoldings
-            : currentState.removedHoldings,
-        };
-      },
-      // Local rehydrate and stateFromSnapshot (cloud apply + import) both collapse
-      // duplicate symbol+type rows. Quantity is summed, avgCost is the weighted
-      // average, and the first row's id and metadata are kept. Trades are not rewritten.
-      onRehydrateStorage: () => {
-        return (state, error) => {
-          if (error || !state) return;
-          const holdings = mergeDuplicateHoldings(
-            Array.isArray(state.holdings)
-              ? state.holdings.filter((h) => h && typeof h === "object" && h.id && h.symbol)
-              : [],
-          );
-          const trades = Array.isArray(state.trades)
-            ? state.trades.filter((t) => t && typeof t === "object" && t.id && t.symbol)
-            : [];
-          const returns = Array.isArray(state.returns)
-            ? state.returns.filter((r) => r && typeof r === "object" && r.id)
-            : [];
-          const removedHoldings = Array.isArray(state.removedHoldings) ? state.removedHoldings : [];
-          const clearedHoldings = recomputeClearedHoldings(trades, holdings, removedHoldings).map(
-            normalizeSoldHolding,
-          );
-          useStore.setState({ holdings, trades, returns, removedHoldings, clearedHoldings });
-        };
-      },
+      // Collapse duplicate symbol+type rows while merging persisted state.
+      // Quantity is summed, avgCost is the weighted average, and the first row's
+      // id and metadata are kept. Trades are not rewritten.
+      merge: (persistedState, currentState) => rehydratedPortfolioState(persistedState, currentState),
     },
   ),
 );
