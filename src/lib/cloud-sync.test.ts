@@ -1,5 +1,5 @@
-import { beforeEach, describe, expect, it } from "vitest";
-import { applyCloudSnapshot } from "@/lib/cloud-sync";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import { applyCloudSnapshot, waitForStoreHydration, withTimeout } from "@/lib/cloud-sync";
 import type { PortfolioSnapshot } from "@/lib/portfolio-snapshot";
 import { useStore } from "@/lib/store";
 
@@ -38,6 +38,33 @@ const cloudWithDuplicateSpcx = (): PortfolioSnapshot => ({
   removedHoldings: [],
   priceHistory: {},
   updatedAt: "2026-03-01T00:00:00.000Z",
+});
+
+describe("store hydration", () => {
+  it("finishes during store setup so cloud reconcile is not left waiting", async () => {
+    expect(useStore.persist.hasHydrated()).toBe(true);
+    await expect(waitForStoreHydration()).resolves.toBeUndefined();
+  });
+});
+
+describe("withTimeout", () => {
+  it("returns the value when the operation settles in time", async () => {
+    await expect(withTimeout(Promise.resolve("ok"), 1_000, "同步超时，请重试")).resolves.toBe("ok");
+  });
+
+  it("rejects with the timeout message when the operation never settles", async () => {
+    vi.useFakeTimers();
+    try {
+      const pending = withTimeout(new Promise(() => {}), 20_000, "读取云端数据超时，请重试").then(
+        () => "resolved",
+        (err: unknown) => (err instanceof Error ? err.message : "unknown"),
+      );
+      await vi.advanceTimersByTimeAsync(20_000);
+      await expect(pending).resolves.toBe("读取云端数据超时，请重试");
+    } finally {
+      vi.useRealTimers();
+    }
+  });
 });
 
 describe("applyCloudSnapshot", () => {

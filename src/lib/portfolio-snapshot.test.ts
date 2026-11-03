@@ -127,6 +127,22 @@ describe("decideReconcile", () => {
     ).toEqual({ type: "apply-cloud", snapshot: cloud });
   });
 
+  it("still loads cloud when an empty browser has a stale dirty sync flag", () => {
+    const cloud = snap({
+      holdings: [holding({ id: "h1", symbol: "NVDA" })],
+      trades: [trade({ id: "t1", symbol: "NVDA" })],
+      updatedAt: "2026-10-02T00:00:00.000Z",
+    });
+    expect(
+      decideReconcile({
+        local: emptySnapshot(),
+        cloud,
+        meta: meta({ userId, lastSyncedAt: "2026-09-01T00:00:00.000Z", dirty: true }),
+        userId,
+      }),
+    ).toEqual({ type: "apply-cloud", snapshot: cloud });
+  });
+
   it("asks before uploading existing local data to an empty cloud", () => {
     const local = snap({ holdings: [holding({ id: "h1", symbol: "AAPL" })] });
     expect(decideReconcile({ local, cloud: null, meta: meta(), userId })).toEqual({
