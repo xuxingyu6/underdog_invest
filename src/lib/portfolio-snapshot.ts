@@ -1,5 +1,6 @@
 import type { ClearedHolding, Holding, ReturnEntry, Trade } from "./types";
 import type { History } from "./priceHistory";
+import { normalizeSector } from "./sector-allocation";
 
 export const PORTFOLIO_BACKUP_VERSION = 3;
 
@@ -151,6 +152,49 @@ function holdingKey<T extends { type: string; symbol: string }>(item: T): string
   return `${item.type}:${item.symbol.toLowerCase()}`;
 }
 
+type SectorRow = { type?: string; symbol?: string; sector?: string };
+
+function sectorKey(row: SectorRow): string | null {
+  if (!row.type || typeof row.symbol !== "string" || !row.symbol) return null;
+  return `${row.type}:${row.symbol.toLowerCase()}`;
+}
+
+/**
+ * Copy a sector onto rows that do not have one. An existing sector is left
+ * alone, so a cloud row tagged 「太空」 is not replaced by a local 「AI基建」,
+ * and a local tag is not deleted just because the other side omitted `sector`.
+ */
+export function fillMissingSectors<T extends SectorRow>(primary: T[], fallback: T[]): T[] {
+  const sectors = new Map<string, string>();
+  for (const row of fallback) {
+    const sector = normalizeSector(row?.sector);
+    const key = row ? sectorKey(row) : null;
+    if (!sector || !key || sectors.has(key)) continue;
+    sectors.set(key, sector);
+  }
+  if (sectors.size === 0) return primary;
+  let changed = false;
+  const next = primary.map((row) => {
+    if (!row || normalizeSector(row.sector)) return row;
+    const key = sectorKey(row);
+    const sector = key ? sectors.get(key) : undefined;
+    if (!sector) return row;
+    changed = true;
+    return { ...row, sector };
+  });
+  return changed ? next : primary;
+}
+
+export function withFallbackSectors(
+  primary: PortfolioSnapshot,
+  fallback: PortfolioSnapshot,
+): PortfolioSnapshot {
+  const holdings = fillMissingSectors(primary.holdings, fallback.holdings);
+  const removedHoldings = fillMissingSectors(primary.removedHoldings, fallback.removedHoldings);
+  if (holdings === primary.holdings && removedHoldings === primary.removedHoldings) return primary;
+  return { ...primary, holdings, removedHoldings };
+}
+
 function mergePriceHistory(local: History, cloud: History): History {
   const dates = new Set([...Object.keys(cloud), ...Object.keys(local)]);
   const out: History = {};
@@ -167,12 +211,14 @@ export function mergeSnapshots(
 ): PortfolioSnapshot {
   const left = normalizeSnapshot(local);
   const right = normalizeSnapshot(cloud);
+  const holdings = mergeByKey(left.holdings, right.holdings, holdingKey);
+  const removedHoldings = mergeByKey(left.removedHoldings, right.removedHoldings, holdingKey);
   return {
-    holdings: mergeByKey(left.holdings, right.holdings, holdingKey),
+    holdings: fillMissingSectors(holdings, [...left.holdings, ...right.holdings]),
     trades: mergeByKey(left.trades, right.trades, (t) => t.id),
     returns: mergeByKey(left.returns, right.returns, (r) => r.id),
     clearedHoldings: mergeByKey(left.clearedHoldings, right.clearedHoldings, holdingKey),
-    removedHoldings: mergeByKey(left.removedHoldings, right.removedHoldings, holdingKey),
+    removedHoldings: fillMissingSectors(removedHoldings, [...left.removedHoldings, ...right.removedHoldings]),
     priceHistory: mergePriceHistory(left.priceHistory, right.priceHistory),
   };
 }

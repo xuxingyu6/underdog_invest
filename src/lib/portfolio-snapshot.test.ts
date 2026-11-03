@@ -112,6 +112,32 @@ describe("mergeSnapshots", () => {
       sector: "太空",
     });
   });
+
+  it("keeps a local sector when the cloud holding never had one", () => {
+    const local = snap({
+      holdings: [holding({ id: "local-aapl", symbol: "AAPL", quantity: 8, sector: "太空" })],
+    });
+    const cloud = snap({
+      holdings: [holding({ id: "cloud-aapl", symbol: "AAPL", quantity: 2 })],
+    });
+    expect(mergeSnapshots(local, cloud).holdings.find((row) => row.symbol === "AAPL")).toMatchObject({
+      quantity: 8,
+      sector: "太空",
+    });
+  });
+
+  it("keeps a cloud sector when the local holding has none", () => {
+    const local = snap({
+      holdings: [holding({ id: "local-aapl", symbol: "AAPL", quantity: 8 })],
+    });
+    const cloud = snap({
+      holdings: [holding({ id: "cloud-aapl", symbol: "AAPL", quantity: 2, sector: "AI基建" })],
+    });
+    expect(mergeSnapshots(local, cloud).holdings.find((row) => row.symbol === "AAPL")).toMatchObject({
+      quantity: 8,
+      sector: "AI基建",
+    });
+  });
 });
 
 describe("decideReconcile", () => {

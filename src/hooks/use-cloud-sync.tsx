@@ -27,6 +27,7 @@ import {
   hasPortfolioData,
   mergeSnapshots,
   snapshotCounts,
+  withFallbackSectors,
   type PortfolioSnapshot,
   type SnapshotCounts,
 } from "@/lib/portfolio-snapshot";
@@ -151,15 +152,22 @@ export function CloudSyncProvider({ children }: { children: ReactNode }) {
       );
       if (stale()) return;
       const local = readLocalSnapshot();
+      const meta = loadSyncMeta();
       const decision = decideReconcile({
         local,
         cloud,
-        meta: loadSyncMeta(),
+        meta,
         userId,
       });
+      // Another account's leftover cache must not label this account's symbols.
+      const sameAccount = !meta.userId || meta.userId === userId;
 
       if (decision.type === "apply-cloud") {
-        const wroteCollapsed = await applyCloudSnapshot(decision.snapshot, (next) => pushSnapshot(next));
+        const wroteCollapsed = await applyCloudSnapshot(
+          decision.snapshot,
+          (next) => pushSnapshot(next),
+          sameAccount ? local : undefined,
+        );
         if (!wroteCollapsed) {
           markMeta({
             userId,
@@ -170,7 +178,17 @@ export function CloudSyncProvider({ children }: { children: ReactNode }) {
         setOutboundEnabled(true);
       } else if (decision.type === "push-local") {
         // A fresh empty browser must not overwrite the account's cloud portfolio.
-        if (hasPortfolioData(local)) await pushSnapshot(local);
+        // Uploading this device must also not drop a sector that exists only in the cloud.
+        if (hasPortfolioData(local)) {
+          const payload = cloud ? withFallbackSectors(local, cloud) : local;
+          if (payload !== local) {
+            useStore.setState({
+              holdings: payload.holdings,
+              removedHoldings: payload.removedHoldings,
+            });
+          }
+          await pushSnapshot(payload);
+        }
         setOutboundEnabled(true);
       } else if (decision.type === "prompt-upload") {
         setPending({ kind: "upload", local: snapshotCounts(local) });
@@ -344,7 +362,11 @@ export function CloudSyncProvider({ children }: { children: ReactNode }) {
     if (!pending || pending.kind !== "conflict" || !userIdRef.current) return;
     try {
       if (choice === "cloud") {
-        const wroteCollapsed = await applyCloudSnapshot(pending.cloudSnapshot, (next) => pushSnapshot(next));
+        const wroteCollapsed = await applyCloudSnapshot(
+          pending.cloudSnapshot,
+          (next) => pushSnapshot(next),
+          readLocalSnapshot(),
+        );
         if (!wroteCollapsed) {
           markMeta({
             userId: userIdRef.current,
