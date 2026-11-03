@@ -3,9 +3,11 @@ import { getHistory, setHistory } from "./priceHistory";
 import {
   emptySnapshot,
   normalizeSnapshot,
+  withFallbackSectors,
   type PortfolioSnapshot,
   type SyncMeta,
 } from "./portfolio-snapshot";
+import { normalizeSector } from "./sector-allocation";
 import { useStore } from "./store";
 import type { ClearedHolding, Holding, ReturnEntry, Trade } from "./types";
 
@@ -57,20 +59,36 @@ export function applyLocalSnapshot(snapshot: PortfolioSnapshot) {
   useStore.getState().applySnapshot(snapshot);
 }
 
+function sectorSignature(holdings: { type?: string; symbol?: string; sector?: string }[]): string {
+  return holdings
+    .map((holding) => {
+      const symbol = typeof holding.symbol === "string" ? holding.symbol.toLowerCase() : "";
+      return `${holding.type ?? ""}:${symbol}=${normalizeSector(holding.sector) ?? ""}`;
+    })
+    .sort()
+    .join("\n");
+}
+
 /**
- * Apply a cloud (or imported) snapshot, then push when duplicate holdings were
- * collapsed. Without the write-back, the next clean sync reapplies the cloud
- * copy and the duplicate rows return.
- * Returns true when a collapsed snapshot was pushed.
+ * Apply a cloud snapshot, keeping sector labels the cloud row does not have.
+ * Pushes the result when duplicate holdings were collapsed or when a sector
+ * was filled in. Without that write-back, the next clean sync reapplies the
+ * cloud copy and either the duplicate rows or the missing sectors return.
+ * Returns true when a snapshot was pushed.
  */
 export async function applyCloudSnapshot(
   snapshot: PortfolioSnapshot,
   push: (next: PortfolioSnapshot) => Promise<void>,
+  fallback?: PortfolioSnapshot,
 ): Promise<boolean> {
-  const before = snapshot.holdings.length;
-  applyLocalSnapshot(snapshot);
+  const beforeCount = snapshot.holdings.length;
+  const beforeSectors = sectorSignature(snapshot.holdings);
+  const enriched = fallback ? withFallbackSectors(snapshot, fallback) : snapshot;
+  applyLocalSnapshot(enriched);
   const local = readLocalSnapshot();
-  if (local.holdings.length === before) return false;
+  const collapsed = local.holdings.length !== beforeCount;
+  const sectorsChanged = sectorSignature(local.holdings) !== beforeSectors;
+  if (!collapsed && !sectorsChanged) return false;
   await push(local);
   return true;
 }

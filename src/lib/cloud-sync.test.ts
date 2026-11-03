@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { applyCloudSnapshot, waitForStoreHydration, withTimeout } from "@/lib/cloud-sync";
-import type { PortfolioSnapshot } from "@/lib/portfolio-snapshot";
+import { applyCloudSnapshot, upsertPortfolio, waitForStoreHydration, withTimeout } from "@/lib/cloud-sync";
+import { emptySnapshot, type PortfolioSnapshot } from "@/lib/portfolio-snapshot";
 import { useStore } from "@/lib/store";
 
 const cloudWithDuplicateSpcx = (): PortfolioSnapshot => ({
@@ -139,5 +139,132 @@ describe("applyCloudSnapshot", () => {
     expect(rklb?.sector).toBe("AI基建");
     expect(pushed[0].holdings.find((h) => h.symbol === "SPCX")?.sector).toBe("太空");
     expect(pushed[0].holdings.find((h) => h.symbol === "RKLB")?.sector).toBe("AI基建");
+  });
+
+  it("keeps a local sector the cloud snapshot is missing and writes that label back", async () => {
+    useStore.setState({
+      holdings: [
+        {
+          id: "local-nvda",
+          symbol: "NVDA",
+          type: "stock",
+          quantity: 1,
+          avgCost: 50,
+          sector: "太空",
+          createdAt: "2026-09-01T00:00:00.000Z",
+        },
+      ],
+      trades: [],
+      returns: [],
+      clearedHoldings: [],
+      removedHoldings: [],
+    });
+    const cloud: PortfolioSnapshot = {
+      ...emptySnapshot(),
+      holdings: [
+        {
+          id: "cloud-nvda",
+          symbol: "NVDA",
+          type: "stock",
+          quantity: 8,
+          avgCost: 120,
+          createdAt: "2026-09-01T00:00:00.000Z",
+        },
+      ],
+      updatedAt: "2026-11-03T05:35:24.000Z",
+    };
+    const pushed: PortfolioSnapshot[] = [];
+    const wrote = await applyCloudSnapshot(cloud, async (next) => {
+      pushed.push(next);
+    }, {
+      ...emptySnapshot(),
+      holdings: useStore.getState().holdings,
+    });
+
+    expect(wrote).toBe(true);
+    expect(useStore.getState().holdings[0]).toMatchObject({ id: "cloud-nvda", quantity: 8, sector: "太空" });
+    expect(pushed[0].holdings[0]).toMatchObject({ quantity: 8, sector: "太空" });
+  });
+
+  it("does not replace a cloud sector with a different local sector", async () => {
+    const cloud: PortfolioSnapshot = {
+      ...emptySnapshot(),
+      holdings: [
+        {
+          id: "cloud-aapl",
+          symbol: "AAPL",
+          type: "stock",
+          quantity: 5,
+          avgCost: 180,
+          sector: "AI基建",
+          createdAt: "2026-09-01T00:00:00.000Z",
+        },
+      ],
+    };
+    const pushed: PortfolioSnapshot[] = [];
+    const wrote = await applyCloudSnapshot(cloud, async (next) => {
+      pushed.push(next);
+    }, {
+      ...emptySnapshot(),
+      holdings: [
+        {
+          id: "local-aapl",
+          symbol: "AAPL",
+          type: "stock",
+          quantity: 1,
+          avgCost: 10,
+          sector: "太空",
+          createdAt: "2026-09-01T00:00:00.000Z",
+        },
+      ],
+    });
+
+    expect(wrote).toBe(false);
+    expect(pushed).toHaveLength(0);
+    expect(useStore.getState().holdings[0]).toMatchObject({ id: "cloud-aapl", quantity: 5, sector: "AI基建" });
+  });
+});
+
+describe("sector round-trip through upsert", () => {
+  it("sends the sector field with the holding", async () => {
+    let payload: { holdings?: { symbol?: string; sector?: string }[] } | null = null;
+    const client = {
+      from: () => ({
+        upsert: (body: { holdings?: { symbol?: string; sector?: string }[] }) => {
+          payload = body;
+          return {
+            select: () => ({
+              single: async () => ({ data: { updated_at: "2026-11-03T05:35:24.000Z" }, error: null }),
+            }),
+          };
+        },
+      }),
+    };
+
+    await upsertPortfolio(client as never, "user-1", {
+      ...emptySnapshot(),
+      holdings: [
+        {
+          id: "h1",
+          symbol: "NVDA",
+          type: "stock",
+          quantity: 8,
+          avgCost: 120,
+          sector: "太空",
+          createdAt: "2026-09-01T00:00:00.000Z",
+        },
+        {
+          id: "h2",
+          symbol: "AAPL",
+          type: "stock",
+          quantity: 3,
+          avgCost: 180,
+          createdAt: "2026-09-01T00:00:00.000Z",
+        },
+      ],
+    });
+
+    expect(payload?.holdings?.find((holding) => holding.symbol === "NVDA")?.sector).toBe("太空");
+    expect(payload?.holdings?.find((holding) => holding.symbol === "AAPL")?.sector).toBeUndefined();
   });
 });
